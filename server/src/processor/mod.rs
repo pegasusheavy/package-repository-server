@@ -4,6 +4,8 @@ pub enum PackageType {
     Rpm,
     Arch,
     Alpine,
+    Cargo,
+    Npm,
 }
 
 impl PackageType {
@@ -17,6 +19,10 @@ impl PackageType {
             Some(PackageType::Arch)
         } else if lower.ends_with(".apk") {
             Some(PackageType::Alpine)
+        } else if lower.ends_with(".crate") {
+            Some(PackageType::Cargo)
+        } else if lower.ends_with(".tgz") {
+            Some(PackageType::Npm)
         } else {
             None
         }
@@ -28,6 +34,8 @@ impl PackageType {
             PackageType::Rpm => "rpm",
             PackageType::Arch => "arch",
             PackageType::Alpine => "alpine",
+            PackageType::Cargo => "cargo",
+            PackageType::Npm => "npm",
         }
     }
 }

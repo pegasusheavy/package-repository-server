@@ -1,0 +1,54 @@
+version: '3.8'
+
+# Docker Compose configuration for E2E tests
+# Usage: docker-compose -f tests/e2e/docker-compose.test.yml up --build --abort-on-container-exit
+
+services:
+  package-repo:
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.standalone
+    container_name: package-repo-test
+    environment:
+      - API_KEYS=test-api-key-12345
+      - REPO_DATA_DIR=/data/packages
+      - REPO_GPG_DIR=/data/gpg
+      - RUST_LOG=debug
+    volumes:
+      - test-packages:/data/packages
+      - test-gpg:/data/gpg
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - test-network
+
+  test-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.test-runner
+    container_name: e2e-test-runner
+    depends_on:
+      package-repo:
+        condition: service_healthy
+    environment:
+      - REPO_URL=http://package-repo
+      - API_URL=http://package-repo:8080
+      - API_KEY=test-api-key-12345
+    volumes:
+      - ./scripts:/tests:ro
+      - ./test-packages:/test-packages:ro
+    networks:
+      - test-network
+    command: ["/tests/run-e2e-tests.sh"]
+
+volumes:
+  test-packages:
+  test-gpg:
+
+networks:
+  test-network:
+    driver: bridge

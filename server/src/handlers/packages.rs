@@ -2,9 +2,8 @@ use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use tokio::process::Command;
-use tracing::{error, info};
+use tracing::info;
 
-use crate::processor::PackageType;
 use crate::AppState;
 
 #[derive(Debug, Serialize)]
@@ -66,7 +65,7 @@ pub async fn list_packages(
     let mut all_packages = Vec::new();
 
     // List packages from all repository types
-    for pkg_type in &["deb", "rpm", "arch", "alpine"] {
+    for pkg_type in &["deb", "rpm", "arch", "alpine", "cargo", "npm"] {
         if let Ok(packages) = list_packages_for_type(&state.data_dir, pkg_type, query.arch.as_deref()).await {
             all_packages.extend(packages);
         }
@@ -112,7 +111,7 @@ async fn list_packages_for_type(
 ) -> Result<Vec<PackageInfo>, String> {
     let mut packages = Vec::new();
 
-    let (base_path, extension, architectures) = match pkg_type {
+    let (base_path, extension, _architectures) = match pkg_type {
         "deb" => (
             format!("{}/deb/pool", data_dir),
             ".deb",
@@ -132,6 +131,16 @@ async fn list_packages_for_type(
             format!("{}/alpine", data_dir),
             ".apk",
             vec!["x86_64", "aarch64", "noarch"],
+        ),
+        "cargo" => (
+            format!("{}/cargo/crates", data_dir),
+            ".crate",
+            vec!["any"],
+        ),
+        "npm" => (
+            format!("{}/npm/packages", data_dir),
+            ".tgz",
+            vec!["any"],
         ),
         _ => return Err(format!("Unknown package type: {}", pkg_type)),
     };
@@ -259,6 +268,28 @@ fn parse_package_filename(filename: &str, pkg_type: &str) -> (String, String, St
                 (filename.to_string(), "unknown".to_string(), "unknown".to_string())
             }
         }
+        "cargo" => {
+            // Format: name-version.crate
+            let without_ext = filename.trim_end_matches(".crate");
+            if let Some(dash_pos) = without_ext.rfind('-') {
+                let name = &without_ext[..dash_pos];
+                let version = &without_ext[dash_pos + 1..];
+                (name.to_string(), version.to_string(), "any".to_string())
+            } else {
+                (without_ext.to_string(), "unknown".to_string(), "any".to_string())
+            }
+        }
+        "npm" => {
+            // Format: name-version.tgz or scope-name-version.tgz
+            let without_ext = filename.trim_end_matches(".tgz");
+            if let Some(dash_pos) = without_ext.rfind('-') {
+                let name = &without_ext[..dash_pos];
+                let version = &without_ext[dash_pos + 1..];
+                (name.to_string(), version.to_string(), "any".to_string())
+            } else {
+                (without_ext.to_string(), "unknown".to_string(), "any".to_string())
+            }
+        }
         _ => (filename.to_string(), "unknown".to_string(), "unknown".to_string()),
     }
 }
@@ -371,5 +402,104 @@ pub async fn rebuild_repo(
             error: "Failed to execute rebuild".to_string(),
             details: Some(e.to_string()),
         }),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_deb_filename() {
+        let (name, version, arch) = parse_package_filename("mypackage_1.0.0_amd64.deb", "deb");
+        assert_eq!(name, "mypackage");
+        assert_eq!(version, "1.0.0");
+        assert_eq!(arch, "amd64");
+    }
+
+    #[test]
+    fn test_parse_deb_filename_with_release() {
+        let (name, version, arch) = parse_package_filename("nginx_1.24.0-1ubuntu1_arm64.deb", "deb");
+        assert_eq!(name, "nginx");
+        assert_eq!(version, "1.24.0-1ubuntu1");
+        assert_eq!(arch, "arm64");
+    }
+
+    #[test]
+    fn test_parse_deb_filename_all_arch() {
+        let (name, version, arch) = parse_package_filename("python3-docs_3.11.0_all.deb", "deb");
+        assert_eq!(name, "python3-docs");
+        assert_eq!(version, "3.11.0");
+        assert_eq!(arch, "all");
+    }
+
+    #[test]
+    fn test_parse_rpm_filename() {
+        let (name, version, arch) = parse_package_filename("mypackage-1.0.0-1.x86_64.rpm", "rpm");
+        assert_eq!(name, "mypackage");
+        assert_eq!(version, "1.0.0-1");
+        assert_eq!(arch, "x86_64");
+    }
+
+    #[test]
+    fn test_parse_rpm_filename_noarch() {
+        let (name, version, arch) = parse_package_filename("python3-setuptools-50.3.2-4.noarch.rpm", "rpm");
+        assert_eq!(name, "python3-setuptools");
+        assert_eq!(version, "50.3.2-4");
+        assert_eq!(arch, "noarch");
+    }
+
+    #[test]
+    fn test_parse_arch_filename_zst() {
+        let (name, version, arch) = parse_package_filename("mypackage-1.0.0-1-x86_64.pkg.tar.zst", "arch");
+        assert_eq!(name, "mypackage");
+        assert_eq!(version, "1.0.0-1");
+        assert_eq!(arch, "x86_64");
+    }
+
+    #[test]
+    fn test_parse_arch_filename_xz() {
+        let (name, version, arch) = parse_package_filename("linux-headers-6.1.0-1-aarch64.pkg.tar.xz", "arch");
+        assert_eq!(name, "linux-headers");
+        assert_eq!(version, "6.1.0-1");
+        assert_eq!(arch, "aarch64");
+    }
+
+    #[test]
+    fn test_parse_arch_filename_any() {
+        let (name, version, arch) = parse_package_filename("bash-completion-2.11-1-any.pkg.tar.zst", "arch");
+        assert_eq!(name, "bash-completion");
+        assert_eq!(version, "2.11-1");
+        assert_eq!(arch, "any");
+    }
+
+    #[test]
+    fn test_parse_alpine_filename() {
+        let (name, version, _arch) = parse_package_filename("mypackage-1.0.0-r0.apk", "alpine");
+        assert_eq!(name, "mypackage");
+        assert!(version.contains("1.0.0"));
+    }
+
+    #[test]
+    fn test_parse_alpine_filename_complex() {
+        let (name, version, _arch) = parse_package_filename("openssl-3.1.4-r0.apk", "alpine");
+        assert_eq!(name, "openssl");
+        assert!(version.contains("3.1.4"));
+    }
+
+    #[test]
+    fn test_parse_unknown_type() {
+        let (name, version, arch) = parse_package_filename("somefile.tar.gz", "unknown");
+        assert_eq!(name, "somefile.tar.gz");
+        assert_eq!(version, "unknown");
+        assert_eq!(arch, "unknown");
+    }
+
+    #[test]
+    fn test_parse_malformed_deb_filename() {
+        let (name, version, arch) = parse_package_filename("malformed.deb", "deb");
+        assert_eq!(name, "malformed.deb");
+        assert_eq!(version, "unknown");
+        assert_eq!(arch, "unknown");
     }
 }

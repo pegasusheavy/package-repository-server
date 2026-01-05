@@ -1,0 +1,238 @@
+---
+title: Angular Frontend Rules
+description: Guidelines for Angular webui development
+tags: [angular, typescript, frontend, webui]
+---
+
+# Angular Frontend Development Rules
+
+## Tech Stack
+- **Angular 21** - Latest Angular framework
+- **TypeScript 5.9** - Strict type checking
+- **Tailwind CSS 4** - Utility-first CSS framework
+- **FontAwesome** - Icon library
+- **RxJS 7.8** - Reactive programming
+- **pnpm** - Package manager (required)
+
+## Package Management
+- **Always use `pnpm` instead of `npm` or `yarn`**
+- Use `pnpm install` to add dependencies
+- Keep `pnpm-lock.yaml` in version control
+- Update dependencies regularly for security patches
+
+## TypeScript
+
+### Type Safety
+- Use strict TypeScript configuration
+- Avoid `any` type - use `unknown` or proper types
+- Define interfaces for all data structures
+- Use type guards for runtime type checking
+- Enable strict null checks
+
+### Naming Conventions
+- Components: PascalCase (`PackageListComponent`)
+- Services: PascalCase with Service suffix (`PackageService`)
+- Interfaces: PascalCase (`Package`, `Repository`)
+- Variables/functions: camelCase (`packageList`, `uploadPackage`)
+- Constants: UPPER_SNAKE_CASE (`API_BASE_URL`)
+- Files: kebab-case (`package-list.component.ts`)
+
+## Angular Components
+
+### Component Structure
+```typescript
+@Component({
+  selector: 'app-component-name',
+  templateUrl: './component-name.component.html',
+  styleUrls: ['./component-name.component.css'],
+  standalone: true,  // Prefer standalone components
+  imports: [...],
+})
+export class ComponentNameComponent implements OnInit, OnDestroy {
+  // Use signals for reactive state (Angular 21 feature)
+  count = signal(0);
+
+  // Inject dependencies in constructor
+  constructor(private service: SomeService) {}
+
+  ngOnInit(): void {
+    // Initialization logic
+  }
+
+  ngOnDestroy(): void {
+    // Cleanup subscriptions
+  }
+}
+```
+
+### Component Best Practices
+- Keep components small and focused
+- Use standalone components (Angular 21 default)
+- Use signals for reactive state management
+- Implement OnDestroy for cleanup
+- Use ChangeDetection.OnPush when possible
+- Avoid complex logic in templates
+
+## Services
+
+### Service Pattern
+```typescript
+@Injectable({
+  providedIn: 'root',  // Singleton service
+})
+export class PackageService {
+  private apiUrl = '/api/v1';
+
+  constructor(private http: HttpClient) {}
+
+  getPackages(): Observable<Package[]> {
+    return this.http.get<Package[]>(`${this.apiUrl}/packages`);
+  }
+}
+```
+
+### Service Best Practices
+- Use `providedIn: 'root'` for singleton services
+- Handle HTTP errors properly
+- Use RxJS operators for data transformation
+- Cache data when appropriate
+- Implement loading/error states
+
+## RxJS
+
+### Observable Patterns
+- Use async pipe in templates to auto-unsubscribe
+- Avoid nested subscriptions - use RxJS operators instead
+- Common operators: `map`, `filter`, `switchMap`, `catchError`, `shareReplay`
+- Unsubscribe from observables in ngOnDestroy
+
+### Example
+```typescript
+packages$ = this.packageService.getPackages().pipe(
+  map(packages => packages.filter(p => p.type === 'deb')),
+  catchError(error => {
+    console.error('Failed to load packages', error);
+    return of([]);
+  }),
+  shareReplay(1)
+);
+```
+
+## Styling
+
+### Tailwind CSS
+- Use Tailwind utility classes for styling
+- Avoid custom CSS when Tailwind utilities exist
+- Use Tailwind's responsive modifiers (`sm:`, `md:`, `lg:`, etc.)
+- Use Tailwind's dark mode support
+- Keep component-specific styles minimal
+
+### Prettier Configuration
+- Use project's Prettier config (defined in `package.json`)
+- Print width: 100 characters
+- Single quotes for strings
+- Angular parser for HTML templates
+- Run Prettier before committing
+
+## Forms
+- Use Reactive Forms over Template-driven forms
+- Implement proper form validation
+- Display validation errors clearly
+- Disable submit button while form is invalid
+- Handle form submission errors
+
+## Routing
+- Use lazy loading for feature modules
+- Implement route guards for protected routes
+- Use route resolvers for data pre-loading
+- Handle navigation errors
+
+## API Integration
+
+### HTTP Interceptors
+- Implement interceptor for API authentication
+- Add loading indicators via interceptors
+- Handle global error responses
+- Add request/response logging in development
+
+### Error Handling
+- Display user-friendly error messages
+- Log errors for debugging
+- Implement retry logic for transient failures
+- Show loading states during API calls
+
+## Testing
+
+### Unit Testing
+- **Use Vitest for all TypeScript/JavaScript testing**
+- Test components with TestBed
+- Mock services and HTTP requests
+- Test user interactions
+- Aim for 80%+ code coverage
+
+### Testing Best Practices
+- Write tests for business logic
+- Test error handling paths
+- Use descriptive test names
+- Keep tests isolated and independent
+- Mock external dependencies
+
+## Performance
+
+### Optimization
+- Use OnPush change detection strategy
+- Implement virtual scrolling for long lists
+- Lazy load routes and modules
+- Optimize images (use WebP, proper sizing)
+- Use trackBy with *ngFor
+- Avoid function calls in templates
+
+### Bundle Size
+- Analyze bundle size regularly
+- Tree-shake unused code
+- Lazy load heavy dependencies
+- Use Angular's built-in optimizations
+
+## Accessibility
+- Use semantic HTML elements
+- Add ARIA labels where needed
+- Ensure keyboard navigation works
+- Test with screen readers
+- Maintain proper heading hierarchy
+- Ensure sufficient color contrast
+
+## Security
+- Sanitize user input
+- Use Angular's built-in XSS protection
+- Validate data from API
+- Implement proper authentication
+- Store API keys securely (never in frontend code)
+- Use HTTPS in production
+
+## Code Organization
+```
+webui/src/
+├── app/
+│   ├── components/          # Reusable components
+│   ├── services/            # Business logic services
+│   ├── models/              # TypeScript interfaces/types
+│   ├── guards/              # Route guards
+│   ├── interceptors/        # HTTP interceptors
+│   ├── pipes/               # Custom pipes
+│   └── pages/               # Page components
+├── assets/                  # Static assets
+└── environments/            # Environment configs
+```
+
+## Build and Development
+- Use `pnpm start` for development server
+- Use `pnpm build` for production build
+- Test production builds locally
+- Check bundle size after major changes
+- Enable source maps for debugging
+
+## Browser Support
+- Support modern browsers (Chrome, Firefox, Safari, Edge)
+- Use browserslist for target configuration
+- Test on different browsers
+- Use polyfills only when necessary

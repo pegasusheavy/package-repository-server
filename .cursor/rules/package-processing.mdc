@@ -1,0 +1,354 @@
+---
+title: Package Processing Rules
+description: Guidelines for handling DEB, RPM, Arch, and Alpine packages
+tags: [packages, deb, rpm, arch, alpine, processing]
+---
+
+# Package Processing Rules
+
+## General Package Handling
+
+### Architecture Support
+- Support **x86_64** (amd64) and **ARM64** (aarch64) architectures
+- Use correct architecture identifiers per format:
+  - DEB: `amd64`, `arm64`
+  - RPM: `x86_64`, `aarch64`
+  - Arch: `x86_64`, `aarch64`
+  - Alpine: `x86_64`, `aarch64`
+- Create separate repository paths per architecture
+- Test packages on both architectures when possible
+
+### Package Validation
+- Verify package format before processing
+- Check package signatures when present
+- Validate package metadata
+- Reject corrupted or invalid packages
+- Check for required fields in package metadata
+- Validate version numbers and naming conventions
+
+### Error Handling
+- Provide clear error messages for validation failures
+- Log all package processing errors
+- Clean up partial uploads on failure
+- Return appropriate HTTP status codes
+- Don't leave repository in inconsistent state
+
+## DEB (Debian/Ubuntu) Packages
+
+### Package Structure
+- Understand control file format
+- Parse control fields correctly
+- Handle multi-line control fields
+- Support all required control fields:
+  - Package name
+  - Version
+  - Architecture
+  - Maintainer
+  - Description
+  - Dependencies
+
+### Repository Structure
+```
+deb/
+├── dists/
+│   └── stable/
+│       └── main/
+│           ├── binary-amd64/
+│           │   └── Packages(.gz)
+│           ├── binary-arm64/
+│           │   └── Packages(.gz)
+│           ├── Release
+│           └── Release.gpg
+└── pool/
+    └── main/
+        └── <first-letter>/
+            └── <package-name>/
+                └── <package>.deb
+```
+
+### Metadata Files
+- **Packages**: List of all packages with metadata
+- **Packages.gz**: Compressed version
+- **Release**: Repository metadata with checksums
+- **Release.gpg**: GPG signature of Release file
+- **InRelease**: Combined signed Release file (optional)
+
+### APT Repository Generation
+- Create Packages file with proper format
+- Include all required fields in Packages file
+- Generate correct checksums (MD5, SHA1, SHA256)
+- Compress Packages file with gzip
+- Sign Release file with GPG
+- Update Release file with correct checksums
+- Support component structure (main, contrib, non-free)
+
+### Best Practices
+- Follow Debian package naming: `<name>_<version>_<arch>.deb`
+- Store packages in pool directory by first letter
+- Maintain consistent directory structure
+- Support multiple distributions if needed
+- Handle package dependencies correctly
+
+## RPM (RHEL/Fedora/Rocky) Packages
+
+### Repository Structure
+```
+rpm/
+├── x86_64/
+│   ├── Packages/
+│   │   └── *.rpm
+│   └── repodata/
+│       ├── repomd.xml
+│       ├── repomd.xml.asc
+│       ├── primary.xml.gz
+│       ├── filelists.xml.gz
+│       └── other.xml.gz
+└── aarch64/
+    └── (same structure)
+```
+
+### Metadata Files
+- **repomd.xml**: Repository metadata index
+- **repomd.xml.asc**: GPG signature
+- **primary.xml.gz**: Package metadata
+- **filelists.xml.gz**: File listings
+- **other.xml.gz**: Additional package info
+
+### YUM/DNF Repository Generation
+- Use `createrepo_c` for repository creation
+- Generate repomd.xml with checksums
+- Create primary, filelists, and other metadata
+- Sign repomd.xml with GPG
+- Update repository atomically
+- Support repository groups (optional)
+
+### Best Practices
+- Follow RPM naming: `<name>-<version>-<release>.<arch>.rpm`
+- Parse RPM headers correctly
+- Handle epoch versions properly
+- Support weak dependencies (Recommends, Suggests)
+- Test with both YUM and DNF clients
+
+### RPM-Specific Considerations
+- Handle %pre, %post, %preun, %postun scripts
+- Check for file conflicts
+- Validate RPM signature if present
+- Handle package obsoletes correctly
+
+## Arch Linux Packages
+
+### Repository Structure
+```
+arch/
+├── x86_64/
+│   ├── *.pkg.tar.zst
+│   ├── custom.db
+│   ├── custom.db.tar.gz
+│   └── custom.files
+└── aarch64/
+    └── (same structure)
+```
+
+### Metadata Files
+- **custom.db**: Package database (symlink to custom.db.tar.gz)
+- **custom.db.tar.gz**: Compressed package database
+- **custom.files**: File listing database
+- **.PKGINFO**: Package metadata inside package
+
+### Pacman Repository Generation
+- Extract .PKGINFO from package
+- Create database entries for each package
+- Update *.db and *.files databases
+- Create symlinks for database versioning
+- Maintain database consistency
+
+### Best Practices
+- Follow Arch naming: `<name>-<version>-<release>-<arch>.pkg.tar.zst`
+- Handle package compression formats (.zst, .xz, .gz)
+- Parse PKGINFO correctly
+- Support split packages
+- Handle package groups
+- Validate package signatures
+
+### Arch-Specific Considerations
+- Support makedepends and checkdepends
+- Handle optdepends correctly
+- Support provides/conflicts/replaces
+- Maintain proper database format
+
+## Alpine Linux Packages
+
+### Repository Structure
+```
+alpine/
+├── v3.19/
+│   └── main/
+│       ├── x86_64/
+│       │   ├── *.apk
+│       │   ├── APKINDEX.tar.gz
+│       │   └── APKINDEX.tar.gz.asc
+│       └── aarch64/
+│           └── (same structure)
+```
+
+### Metadata Files
+- **APKINDEX.tar.gz**: Package index
+- **APKINDEX.tar.gz.asc**: GPG signature (detached)
+- **.PKGINFO**: Package metadata inside .apk
+
+### APK Repository Generation
+- Extract package metadata from .apk files
+- Create APKINDEX with all packages
+- Compress APKINDEX with gzip
+- Sign APKINDEX.tar.gz with GPG (detached signature)
+- Organize by Alpine version and architecture
+
+### Best Practices
+- Follow APK naming: `<name>-<version>-r<release>.<arch>.apk`
+- Support version-specific repositories (v3.19, v3.20, etc.)
+- Handle package signing correctly
+- Parse .PKGINFO format
+- Support origin and maintainer fields
+
+### APK-Specific Considerations
+- Handle Alpine versioning scheme
+- Support install_if dependencies
+- Handle triggers correctly
+- Maintain version-specific repositories
+
+## Automatic Indexing
+
+### Upload Process
+1. Receive package file via API
+2. Validate package format and metadata
+3. Extract package information
+4. Move package to correct location
+5. Update repository metadata
+6. Sign metadata files
+7. Return success response
+
+### Index Updates
+- Update indexes **immediately** after upload
+- Make updates atomic (tmp files + rename)
+- Verify index integrity after update
+- Keep previous index as backup
+- Log all index operations
+
+### Concurrency
+- Handle concurrent uploads safely
+- Use file locking for index updates
+- Implement retry logic for conflicts
+- Queue updates if necessary
+- Ensure repository consistency
+
+## GPG Signing
+
+### Key Management
+- Auto-generate GPG key on first run
+- Use RSA 4096-bit keys minimum
+- Store keys in secure location (`/data/gpg`)
+- Backup keys securely
+- Document key recovery process
+
+### Signing Process
+- Sign all repository metadata files
+- Create detached signatures where appropriate
+- Embed signatures in metadata when required (DEB InRelease)
+- Verify signatures after creation
+- Re-sign metadata after any update
+
+### Public Key Distribution
+- Serve public key at `/repo.gpg`
+- Provide key fingerprint in documentation
+- Support key download via setup scripts
+- Document key import procedures
+
+## Package Deletion
+
+### Safe Deletion
+- Remove package file from repository
+- Update repository metadata
+- Regenerate index files
+- Re-sign metadata
+- Verify repository consistency
+- Log deletion operations
+
+### Considerations
+- Check for package dependencies before deletion
+- Warn if package is referenced by others
+- Support force deletion if needed
+- Keep audit trail of deletions
+
+## Repository Rebuild
+
+### Manual Rebuild
+- Scan all packages in repository
+- Regenerate all metadata from scratch
+- Re-sign all metadata files
+- Verify repository integrity
+- Useful for corruption recovery
+
+### When to Rebuild
+- After repository corruption
+- After GPG key rotation
+- When adding new repository features
+- For consistency verification
+
+## Testing Package Repositories
+
+### Test Each Package Type
+- Install package using native package manager
+- Verify package contents
+- Test package upgrade
+- Test package removal
+- Verify dependencies are resolved
+- Check GPG signature verification
+
+### Test Repository Metadata
+- Validate metadata format
+- Verify checksums
+- Check GPG signatures
+- Test with client tools (apt, dnf, pacman, apk)
+
+### Integration Testing
+- Test full upload-to-install workflow
+- Test multi-architecture scenarios
+- Test concurrent uploads
+- Test error conditions
+- Test repository rebuild
+
+## Performance Optimization
+
+### Indexing Performance
+- Use efficient parsers for package formats
+- Cache extracted metadata when possible
+- Use parallel processing for batch operations
+- Optimize file I/O operations
+- Use streaming for large files
+
+### Storage Optimization
+- Use compression for metadata files
+- Implement deduplication if needed
+- Clean up temporary files promptly
+- Monitor disk space usage
+
+## Monitoring and Debugging
+
+### Logging
+- Log all package operations
+- Include package name, version, and arch in logs
+- Log processing times
+- Log errors with full context
+
+### Metrics
+- Track upload rates
+- Monitor processing times
+- Track repository size
+- Monitor index generation time
+- Alert on failures
+
+### Debugging
+- Provide verbose logging option
+- Include package checksums in logs
+- Log external command output
+- Save problematic packages for analysis

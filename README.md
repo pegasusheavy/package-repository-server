@@ -10,6 +10,8 @@ Built entirely in Rust - uses **Actix** for the API server and **Ferron** for st
 - **Multi-Architecture**: Full support for x86_64 (amd64) and ARM64 (aarch64)
 - **Automatic Indexing**: Packages are automatically indexed and signed on upload
 - **GPG Signing**: All repository metadata is GPG-signed for security
+- **SSO Authentication**: OAuth 2.0 / OpenID Connect support (Google, GitHub, GitLab, Microsoft, Okta, Auth0, Keycloak)
+- **Stateless Backend**: No session storage required - horizontally scalable out of the box
 - **REST API**: Full API for CI/CD integration
 - **S3 Compatible Storage**: Optional S3-compatible backend (AWS S3, MinIO, DigitalOcean Spaces, etc.)
 - **Pure Rust**: Actix API server + Ferron static file server
@@ -395,6 +397,54 @@ terraform init
 terraform apply
 ```
 
+## Authentication
+
+### API Key Authentication
+
+For service accounts, CI/CD, and automation:
+
+```bash
+# Generate a secure API key
+API_KEY=$(openssl rand -hex 32)
+
+# Use in requests
+curl -H "X-API-Key: $API_KEY" \
+  -F "file=@package.deb" \
+  https://packages.example.com/api/v1/upload/deb
+```
+
+### SSO Authentication
+
+Enable OAuth 2.0 / OpenID Connect for user login:
+
+```bash
+# Enable SSO
+export SSO_ENABLED=true
+export SSO_JWT_SECRET=$(openssl rand -hex 32)
+export SSO_BASE_URL=https://packages.example.com
+
+# Configure Google SSO
+export SSO_GOOGLE_ENABLED=true
+export SSO_GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+export SSO_GOOGLE_CLIENT_SECRET=your-secret
+export SSO_GOOGLE_ALLOWED_DOMAINS=example.com
+
+# Start server
+docker-compose up -d
+```
+
+**Supported SSO Providers:**
+- Google (Google Workspace)
+- GitHub
+- GitLab (SaaS and self-hosted)
+- Microsoft / Azure AD
+- Okta
+- Auth0
+- Keycloak
+- Generic OIDC (any compliant provider)
+
+See [docs/SSO_CONFIGURATION.md](docs/SSO_CONFIGURATION.md) for complete SSO setup guide.
+
 ## Configuration
 
 ### Environment Variables
@@ -411,6 +461,9 @@ terraform apply
 | `S3_REGION` | S3 region | `us-east-1` |
 | `S3_ACCESS_KEY` | S3 access key | `` |
 | `S3_SECRET_KEY` | S3 secret key | `` |
+| `SSO_ENABLED` | Enable SSO authentication | `false` |
+| `SSO_JWT_SECRET` | JWT secret for session tokens | `` |
+| `SSO_BASE_URL` | Base URL for OAuth redirects | `` |
 
 ### Helm Values
 

@@ -1,4 +1,12 @@
+pub mod auth;
+pub mod cargo;
+pub mod docker;
 pub mod health;
+pub mod maven;
+pub mod npm;
+pub mod nuget;
 pub mod packages;
+pub mod pypi;
+pub mod registry_types;
 pub mod setup;
 pub mod upload;

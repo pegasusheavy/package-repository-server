@@ -172,6 +172,14 @@ pub async fn upload_package(
         PackageType::Rpm => "process-rpm",
         PackageType::Arch => "process-arch",
         PackageType::Alpine => "process-alpine",
+        PackageType::Cargo | PackageType::Npm => {
+            // These types use dedicated registry endpoints, not the generic upload
+            let _ = tokio::fs::remove_file(&temp_path).await;
+            return HttpResponse::BadRequest().json(ErrorResponse {
+                error: format!("{} packages must be published via their dedicated registry endpoints", pkg_type),
+                details: Some("Use /cargo/api/v1/crates/new for Cargo or PUT /npm/<package> for npm".to_string()),
+            });
+        }
     };
 
     let mut cmd = Command::new(processor_script);

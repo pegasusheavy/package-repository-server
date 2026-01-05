@@ -1,0 +1,142 @@
+---
+title: Rust Development Rules
+description: Guidelines for Rust backend development
+tags: [rust, backend, actix, cargo]
+---
+
+# Rust Backend Development Rules
+
+## Toolchain
+- Use stable Rust channel (configured in `rust-toolchain.toml`)
+- Keep Rust toolchain up to date for security patches
+
+## Code Quality
+
+### Formatting
+- **Always run `cargo fmt` before committing**
+- Use default rustfmt configuration
+- No custom formatting rules
+
+### Linting
+- **Run `cargo clippy` and fix all warnings**
+- Treat clippy warnings as errors in CI
+- Use `#[allow(clippy::xxx)]` sparingly and only with justification
+
+### Error Handling
+- Use `Result<T, E>` for fallible operations
+- Avoid `.unwrap()` in production code
+- Use `.expect()` only when panic is truly appropriate with clear message
+- Prefer `?` operator for error propagation
+- Use `anyhow` for application errors
+- Use `thiserror` for library errors
+
+### Documentation
+- Write doc comments (`///`) for all public functions, structs, and modules
+- Include examples in doc comments when appropriate
+- Document panics with `# Panics` section
+- Document errors with `# Errors` section
+
+## Dependencies
+
+### Crate Selection
+- Prefer well-maintained crates with active communities
+- Check crate security advisories before adding dependencies
+- Keep dependencies up to date
+
+### Key Dependencies
+- `actix-web` - Web framework for API server
+- `actix-multipart` - File upload handling
+- `tokio` - Async runtime
+- `serde` / `serde_json` - Serialization
+- `aws-sdk-s3` - S3 storage backend
+- `tracing` - Logging and instrumentation
+
+## Testing
+
+### Unit Tests
+- Write unit tests in the same file using `#[cfg(test)]` module
+- Use descriptive test names: `test_should_parse_deb_package_metadata`
+- Test both success and failure cases
+- Use `#[tokio::test]` for async tests
+
+### Integration Tests
+- Place integration tests in `/server/tests`
+- Use `actix-test` for API endpoint testing
+- Use `serial_test` for tests that share state
+
+### Benchmarks
+- Add benchmarks to `/server/benches` using Criterion
+- Run benchmarks before and after performance changes
+
+## Async/Await
+- Use async/await for I/O operations
+- Prefer `tokio::spawn` for concurrent tasks
+- Use `tokio::fs` for file system operations
+- Use `tokio::process` for external command execution
+
+## Security
+
+### Input Validation
+- Sanitize all user input, especially filenames
+- Validate file types before processing
+- Check file sizes to prevent DoS
+- Use `sanitize-filename` crate for filename sanitization
+
+### Authentication
+- Use secure API key comparison (constant-time)
+- Never log API keys
+- Support multiple API keys for key rotation
+
+### Cryptography
+- Use `sha2` for SHA-256 hashing
+- Use `sha1` only when required by package formats
+- Properly verify GPG signatures
+
+## Package Processing
+
+### Architecture Support
+- Support both x86_64 (amd64) and ARM64 (aarch64)
+- Handle architecture-specific paths correctly
+- Test on both architectures when possible
+
+### Package Types
+When working with package-specific code:
+- **DEB**: Use proper Debian package structure, handle control files correctly
+- **RPM**: Parse RPM headers, maintain proper YUM/DNF metadata
+- **Arch**: Handle `.pkg.tar.zst` format, maintain pacman database
+- **Alpine**: Handle APK format, maintain APKINDEX
+
+### GPG Signing
+- Auto-generate GPG keys on first run if not present
+- Sign all repository metadata
+- Store GPG keys securely in `/data/gpg`
+
+## Performance
+- Use release builds for benchmarking
+- Enable LTO in release profile
+- Profile code before optimizing
+- Cache frequently accessed data
+- Use streaming for large file operations
+
+## Logging
+- Use `tracing` crate for structured logging
+- Log levels:
+  - `error!` - Unrecoverable errors
+  - `warn!` - Recoverable errors or concerning situations
+  - `info!` - Important state changes
+  - `debug!` - Detailed debugging information
+  - `trace!` - Very verbose debugging
+- Include context in log messages (package name, operation, etc.)
+
+## API Design
+- Follow RESTful conventions
+- Use appropriate HTTP status codes
+- Return JSON responses with consistent structure
+- Version API endpoints (`/api/v1/...`)
+- Document endpoints in code comments
+
+## Database/Storage
+- Support both local filesystem and S3-compatible storage
+- Use environment variables for configuration
+- Handle storage errors gracefully
+- Implement retry logic for S3 operations

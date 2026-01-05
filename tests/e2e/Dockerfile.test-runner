@@ -1,0 +1,26 @@
+# Test runner image for E2E tests
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    jq \
+    gnupg \
+    ca-certificates \
+    dpkg-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /tests
+
+# Create a minimal test .deb package
+RUN mkdir -p /test-packages/mypackage/DEBIAN && \
+    echo "Package: mypackage\n\
+Version: 1.0.0\n\
+Architecture: amd64\n\
+Maintainer: Test <test@example.com>\n\
+Description: Test package for E2E testing\n" > /test-packages/mypackage/DEBIAN/control && \
+    dpkg-deb --build /test-packages/mypackage /test-packages/mypackage_1.0.0_amd64.deb
+
+COPY scripts/ /tests/
+RUN chmod +x /tests/*.sh
+
+CMD ["/tests/run-e2e-tests.sh"]

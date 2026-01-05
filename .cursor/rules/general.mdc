@@ -1,0 +1,69 @@
+---
+title: General Project Rules
+description: Core guidelines and conventions for the Package Repository Server project
+tags: [general, conventions, standards]
+---
+
+# Package Repository Server - General Rules
+
+## Project Overview
+This is a multi-format package repository server supporting DEB, RPM, Arch, and Alpine packages. The project consists of:
+- Rust backend (Actix-web API + Ferron static file server)
+- Angular 21 frontend (webui)
+- Docker/Kubernetes deployment configurations
+- Terraform modules for cloud deployment
+- Helm charts for Kubernetes
+
+## Commit Convention
+Follow [Conventional Commits](https://www.conventionalcommits.org/) format:
+- `feat:` - New feature
+- `fix:` - Bug fix
+- `docs:` - Documentation changes
+- `style:` - Code style changes (formatting, etc.)
+- `refactor:` - Code refactoring
+- `test:` - Adding or updating tests
+- `chore:` - Maintenance tasks
+- `perf:` - Performance improvements
+- `ci:` - CI/CD changes
+
+Example: `feat: add RPM package signing support`
+
+## File Organization
+- `/server` - Rust API server and package processing
+- `/webui` - Angular frontend application
+- `/docker` - Docker and Docker Compose configurations
+- `/kubernetes` - Kubernetes manifests
+- `/helm` - Helm charts
+- `/terraform` - Terraform modules for cloud providers
+- `/ci-examples` - CI/CD integration examples
+- `/tests` - End-to-end and integration tests
+
+## Package Manager
+- **Frontend**: Always use `pnpm` instead of `npm` or `yarn`
+- **Backend**: Use `cargo` for Rust dependencies
+
+## Testing Requirements
+- Write unit tests for all new functionality
+- Test all supported package types (DEB, RPM, Arch, Alpine) when making package processing changes
+- Run integration tests before submitting PRs
+- Use Vitest for any TypeScript/JavaScript testing
+
+## Documentation
+- Update README.md for user-facing changes
+- Update CONTRIBUTING.md for development process changes
+- Add inline comments for complex logic
+- Document public APIs with doc comments
+
+## Code Review
+- All changes require at least one approval
+- CI checks must pass before merging
+- Address all review feedback before merge
+
+## License and Copyright
+- Project is licensed under Apache License 2.0
+- Copyright: Pegasus Heavy Industries LLC
+- Include proper license headers in new files
+
+## GitHub Funding
+When setting up GitHub funding profiles, use:
+- Patreon: https://www.patreon.com/c/PegasusHeavyIndustries?vanity=user

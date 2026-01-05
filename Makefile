@@ -61,21 +61,48 @@ dev: ## Run in development mode
 
 ##@ Testing
 
-test: ## Run tests
-	@echo "Running tests..."
-	cd server && cargo test
+test: ## Run all tests (unit + integration)
+	@echo "Running all tests..."
+	cd server && cargo test --all-features
 
-test-integration: ## Run integration tests
+test-unit: ## Run unit tests only
+	@echo "Running unit tests..."
+	cd server && cargo test --lib
+
+test-integration: ## Run integration tests only
 	@echo "Running integration tests..."
-	./scripts/test-integration.sh
+	cd server && cargo test --test '*'
+
+test-e2e: ## Run E2E tests with Docker Compose
+	@echo "Running E2E tests..."
+	docker-compose -f tests/e2e/docker-compose.test.yml up \
+		--build \
+		--abort-on-container-exit \
+		--exit-code-from test-runner
+	docker-compose -f tests/e2e/docker-compose.test.yml down -v
+
+test-e2e-clean: ## Clean up E2E test containers
+	docker-compose -f tests/e2e/docker-compose.test.yml down -v --rmi local
+
+test-all: test test-e2e ## Run all tests including E2E
+
+test-coverage: ## Run tests with coverage
+	@echo "Running tests with coverage..."
+	cd server && cargo tarpaulin --out Html --output-dir ../coverage
 
 lint: ## Run linters
 	@echo "Running linters..."
-	cd server && cargo clippy -- -D warnings
+	cd server && cargo clippy --all-features -- -D warnings
 	cd server && cargo fmt -- --check
+	@echo "Linting shell scripts..."
+	shellcheck docker/scripts/*.sh || true
 
 fmt: ## Format code
 	cd server && cargo fmt
+
+audit: ## Run security audit
+	@echo "Running security audit..."
+	cd server && cargo audit
 
 ##@ Kubernetes
 
