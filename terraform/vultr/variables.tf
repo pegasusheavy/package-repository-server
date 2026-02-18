@@ -68,6 +68,12 @@ variable "object_storage_cluster_id" {
   default     = 2  # ewr1 (New Jersey)
 }
 
+variable "object_storage_tier_id" {
+  description = "Vultr Object Storage tier ID"
+  type        = string
+  default     = "storage_tier_5gb_0_00500"
+}
+
 variable "api_keys" {
   description = "API keys for authentication"
   type        = list(string)

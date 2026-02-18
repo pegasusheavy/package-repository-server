@@ -18,6 +18,7 @@ fn create_test_app_state(temp_dir: &tempfile::TempDir) -> web::Data<AppState> {
         api_keys: vec!["test-api-key".to_string(), "another-key".to_string()],
         data_dir: data_dir.to_string_lossy().to_string(),
         gpg_dir: gpg_dir.to_string_lossy().to_string(),
+        sso: None,
     })
 }
 
