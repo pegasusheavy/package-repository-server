@@ -14,8 +14,20 @@ WORKDIR /build
 COPY server/ ./server/
 RUN cd server && cargo build --release
 
-# Install Ferron
-RUN cargo install ferron --locked
+# Install Ferron from GitHub releases (the crates.io "ferron" name is only a
+# reserved placeholder, so cargo install does not work; 1.x is the last
+# YAML-config release line matching the ferron.yaml configs)
+ARG TARGETARCH
+RUN apk add --no-cache curl unzip && \
+    case "${TARGETARCH:-amd64}" in \
+      arm64) FERRON_TARGET="aarch64-unknown-linux-musl" ;; \
+      *) FERRON_TARGET="x86_64-unknown-linux-musl" ;; \
+    esac && \
+    curl -fsSL -o /tmp/ferron.zip \
+      "https://github.com/ferronweb/ferron/releases/download/1.3.6/ferron-1.3.6-${FERRON_TARGET}.zip" && \
+    unzip -o /tmp/ferron.zip ferron -d /tmp/ferron-dist && \
+    install -m 0755 /tmp/ferron-dist/ferron /usr/local/cargo/bin/ferron && \
+    rm -rf /tmp/ferron.zip /tmp/ferron-dist
 
 # Final image based on Alpine for small size + APK tools
 FROM alpine:3.19
