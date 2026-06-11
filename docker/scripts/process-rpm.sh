@@ -50,9 +50,12 @@ add_package() {
     fi
 
     # Extract package info
-    local pkg_name=$(rpm -qp --queryformat '%{NAME}' "$rpm_file" 2>/dev/null)
-    local pkg_arch=$(rpm -qp --queryformat '%{ARCH}' "$rpm_file" 2>/dev/null)
-    local pkg_version=$(rpm -qp --queryformat '%{VERSION}-%{RELEASE}' "$rpm_file" 2>/dev/null)
+    local pkg_name
+    pkg_name=$(rpm -qp --queryformat '%{NAME}' "$rpm_file" 2>/dev/null)
+    local pkg_arch
+    pkg_arch=$(rpm -qp --queryformat '%{ARCH}' "$rpm_file" 2>/dev/null)
+    local pkg_version
+    pkg_version=$(rpm -qp --queryformat '%{VERSION}-%{RELEASE}' "$rpm_file" 2>/dev/null)
 
     echo "Adding package: $pkg_name ($pkg_version) for $pkg_arch"
 

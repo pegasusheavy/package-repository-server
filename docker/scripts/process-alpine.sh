@@ -43,7 +43,8 @@ create_apkindex() {
     local arch_dir="$1"
 
     # Find all APK files
-    local apk_files=$(find "$arch_dir" -maxdepth 1 -name "*.apk" 2>/dev/null)
+    local apk_files
+    apk_files=$(find "$arch_dir" -maxdepth 1 -name "*.apk" 2>/dev/null)
 
     # Create APKINDEX
     cd "$arch_dir"
@@ -55,7 +56,8 @@ create_apkindex() {
             [ -f "$apk" ] || continue
 
             # Extract package info
-            local pkg_info=$(tar -xzf "$apk" -O .PKGINFO 2>/dev/null || true)
+            local pkg_info
+            pkg_info=$(tar -xzf "$apk" -O .PKGINFO 2>/dev/null || true)
             if [ -n "$pkg_info" ]; then
                 index_content+="$pkg_info"
                 index_content+=$'\n\n'
@@ -116,9 +118,12 @@ add_package() {
     fi
 
     # Extract architecture from package
-    local pkg_arch=$(tar -xzf "$apk_file" -O .PKGINFO 2>/dev/null | grep "^arch" | cut -d= -f2 | tr -d ' ')
-    local pkg_name=$(tar -xzf "$apk_file" -O .PKGINFO 2>/dev/null | grep "^pkgname" | cut -d= -f2 | tr -d ' ')
-    local pkg_ver=$(tar -xzf "$apk_file" -O .PKGINFO 2>/dev/null | grep "^pkgver" | cut -d= -f2 | tr -d ' ')
+    local pkg_arch
+    pkg_arch=$(tar -xzf "$apk_file" -O .PKGINFO 2>/dev/null | grep "^arch" | cut -d= -f2 | tr -d ' ')
+    local pkg_name
+    pkg_name=$(tar -xzf "$apk_file" -O .PKGINFO 2>/dev/null | grep "^pkgname" | cut -d= -f2 | tr -d ' ')
+    local pkg_ver
+    pkg_ver=$(tar -xzf "$apk_file" -O .PKGINFO 2>/dev/null | grep "^pkgver" | cut -d= -f2 | tr -d ' ')
 
     echo "Adding package: $pkg_name ($pkg_ver) for $pkg_arch"
 
