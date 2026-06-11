@@ -1,7 +1,8 @@
 #!/bin/bash
 # E2E Test Suite for Package Repository Server
 
-set -e
+# No `set -e`: assertions record failures in TESTS_FAILED and the suite
+# reports/exits at the end; aborting on first failure would skip the summary.
 
 # Configuration
 REPO_URL="${REPO_URL:-http://package-repo}"
@@ -25,12 +26,12 @@ log_info() {
 
 log_success() {
     echo -e "${GREEN}[PASS]${NC} $1"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 }
 
 log_failure() {
     echo -e "${RED}[FAIL]${NC} $1"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 }
 
 assert_equals() {
