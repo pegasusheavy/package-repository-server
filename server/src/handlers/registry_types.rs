@@ -186,11 +186,23 @@ pub struct NpmVersionMetadata {
     pub types: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dependencies: Option<HashMap<String, String>>,
-    #[serde(rename = "devDependencies", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "devDependencies",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub dev_dependencies: Option<HashMap<String, String>>,
-    #[serde(rename = "peerDependencies", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "peerDependencies",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub peer_dependencies: Option<HashMap<String, String>>,
-    #[serde(rename = "optionalDependencies", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "optionalDependencies",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub optional_dependencies: Option<HashMap<String, String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scripts: Option<HashMap<String, String>>,
@@ -224,7 +236,11 @@ pub struct NpmDist {
     pub integrity: Option<String>,
     #[serde(rename = "fileCount", default, skip_serializing_if = "Option::is_none")]
     pub file_count: Option<u64>,
-    #[serde(rename = "unpackedSize", default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        rename = "unpackedSize",
+        default,
+        skip_serializing_if = "Option::is_none"
+    )]
     pub unpacked_size: Option<u64>,
 }
 

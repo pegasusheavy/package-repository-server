@@ -5,19 +5,22 @@ use std::path::PathBuf;
 use tokio::fs;
 use tracing::{error, info};
 
-use crate::AppState;
 use crate::utils::version_compare_optimized;
+use crate::AppState;
 
 use super::auth::validate_api_key;
 
-/// Maven repository layout:
-/// /{groupId}/{artifactId}/{version}/{artifactId}-{version}.{extension}
-/// /{groupId}/{artifactId}/{version}/{artifactId}-{version}.{extension}.sha1
-/// /{groupId}/{artifactId}/{version}/{artifactId}-{version}.{extension}.md5
-/// /{groupId}/{artifactId}/maven-metadata.xml
+// Maven repository layout:
+// /{groupId}/{artifactId}/{version}/{artifactId}-{version}.{extension}
+// /{groupId}/{artifactId}/{version}/{artifactId}-{version}.{extension}.sha1
+// /{groupId}/{artifactId}/{version}/{artifactId}-{version}.{extension}.md5
+// /{groupId}/{artifactId}/maven-metadata.xml
 
 fn get_artifact_path(data_dir: &str, path: &str) -> PathBuf {
-    PathBuf::from(data_dir).join("maven").join("repository").join(path)
+    PathBuf::from(data_dir)
+        .join("maven")
+        .join("repository")
+        .join(path)
 }
 
 /// GET /maven/{path:.*} - Download artifact or metadata
@@ -39,9 +42,7 @@ pub async fn get_artifact(
     match fs::read(&file_path).await {
         Ok(data) => {
             let content_type = guess_content_type(&artifact_path);
-            HttpResponse::Ok()
-                .content_type(content_type)
-                .body(data)
+            HttpResponse::Ok().content_type(content_type).body(data)
         }
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
             HttpResponse::NotFound().body("Artifact not found")
@@ -131,12 +132,10 @@ pub async fn head_artifact(
     let file_path = get_artifact_path(&state.data_dir, &artifact_path);
 
     match fs::metadata(&file_path).await {
-        Ok(meta) => {
-            HttpResponse::Ok()
-                .insert_header(("Content-Length", meta.len().to_string()))
-                .insert_header(("Content-Type", guess_content_type(&artifact_path)))
-                .finish()
-        }
+        Ok(meta) => HttpResponse::Ok()
+            .insert_header(("Content-Length", meta.len().to_string()))
+            .insert_header(("Content-Type", guess_content_type(&artifact_path)))
+            .finish(),
         Err(_) => HttpResponse::NotFound().finish(),
     }
 }
@@ -272,19 +271,15 @@ fn version_compare(a: &str, b: &str) -> std::cmp::Ordering {
 }
 
 /// GET /maven/ - Simple index page
-pub async fn index(
-    req: HttpRequest,
-    state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn index(req: HttpRequest, state: web::Data<AppState>) -> impl Responder {
     if !validate_api_key(&req, &state) {
         return HttpResponse::Unauthorized()
             .insert_header(("WWW-Authenticate", "Basic realm=\"Maven Repository\""))
             .body("Authentication required");
     }
 
-    HttpResponse::Ok()
-        .content_type("text/html")
-        .body(r#"<!DOCTYPE html>
+    HttpResponse::Ok().content_type("text/html").body(
+        r#"<!DOCTYPE html>
 <html>
 <head><title>Maven Repository</title></head>
 <body>
@@ -292,5 +287,6 @@ pub async fn index(
 <p>This is a private Maven repository.</p>
 <p>Configure your <code>pom.xml</code> or <code>settings.xml</code> to use this repository.</p>
 </body>
-</html>"#)
+</html>"#,
+    )
 }

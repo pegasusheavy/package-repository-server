@@ -1,4 +1,4 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId, Throughput};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput};
 use package_repo_server::utils;
 
 // Sample data for benchmarks
@@ -66,13 +66,19 @@ fn bench_version_compare(c: &mut Criterion) {
 
     for (a, b) in VERSIONS {
         let id = format!("{} vs {}", a, b);
-        group.bench_with_input(BenchmarkId::new("original", &id), &(a, b), |bench, (a, b)| {
-            bench.iter(|| utils::version_compare(black_box(a), black_box(b)))
-        });
+        group.bench_with_input(
+            BenchmarkId::new("original", &id),
+            &(a, b),
+            |bench, (a, b)| bench.iter(|| utils::version_compare(black_box(a), black_box(b))),
+        );
 
-        group.bench_with_input(BenchmarkId::new("optimized", &id), &(a, b), |bench, (a, b)| {
-            bench.iter(|| utils::version_compare_optimized(black_box(a), black_box(b)))
-        });
+        group.bench_with_input(
+            BenchmarkId::new("optimized", &id),
+            &(a, b),
+            |bench, (a, b)| {
+                bench.iter(|| utils::version_compare_optimized(black_box(a), black_box(b)))
+            },
+        );
     }
 
     group.finish();
@@ -117,7 +123,13 @@ fn bench_crate_name_validation(c: &mut Criterion) {
 fn bench_pypi_normalize(c: &mut Criterion) {
     let mut group = c.benchmark_group("pypi_normalize");
 
-    let names = ["MyPackage", "my-package", "my_package", "my.package", "Django"];
+    let names = [
+        "MyPackage",
+        "my-package",
+        "my_package",
+        "my.package",
+        "Django",
+    ];
 
     for name in names {
         group.bench_with_input(BenchmarkId::new("original", name), &name, |b, name| {
@@ -186,17 +198,15 @@ fn bench_json_serialization(c: &mut Criterion) {
     let entry = CargoIndexEntry {
         name: "serde".to_string(),
         vers: "1.0.193".to_string(),
-        deps: vec![
-            CargoDep {
-                name: "serde_derive".to_string(),
-                req: "^1.0".to_string(),
-                features: vec![],
-                optional: true,
-                default_features: true,
-                target: None,
-                kind: None,
-            },
-        ],
+        deps: vec![CargoDep {
+            name: "serde_derive".to_string(),
+            req: "^1.0".to_string(),
+            features: vec![],
+            optional: true,
+            default_features: true,
+            target: None,
+            kind: None,
+        }],
         cksum: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890".to_string(),
         features,
         yanked: false,

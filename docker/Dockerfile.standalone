@@ -5,9 +5,20 @@
 # Uses Ferron (Rust) for static file serving
 
 # Build stage for Rust API server and Ferron
-FROM rust:1.75-alpine AS builder
+FROM rust:1-alpine3.22 AS builder
 
-RUN apk add --no-cache musl-dev openssl-dev openssl-libs-static pkgconf git
+RUN apk add --no-cache \
+    musl-dev \
+    openssl-dev \
+    openssl-libs-static \
+    pkgconf \
+    git \
+    cmake \
+    make \
+    gcc \
+    g++ \
+    perl \
+    linux-headers
 
 WORKDIR /build
 
@@ -15,23 +26,36 @@ WORKDIR /build
 COPY server/ ./server/
 RUN cd server && cargo build --release
 
-# Install Ferron
-RUN cargo install ferron --locked
+# Install Ferron from GitHub releases (the crates.io "ferron" name is only a
+# reserved placeholder, so cargo install does not work; 1.x is the last
+# YAML-config release line matching config/ferron.yaml)
+ARG TARGETARCH
+RUN apk add --no-cache curl unzip && \
+    case "${TARGETARCH:-amd64}" in \
+      arm64) FERRON_TARGET="aarch64-unknown-linux-musl" ;; \
+      *) FERRON_TARGET="x86_64-unknown-linux-musl" ;; \
+    esac && \
+    curl -fsSL -o /tmp/ferron.zip \
+      "https://github.com/ferronweb/ferron/releases/download/1.3.6/ferron-1.3.6-${FERRON_TARGET}.zip" && \
+    unzip -o /tmp/ferron.zip ferron -d /tmp/ferron-dist && \
+    install -m 0755 /tmp/ferron-dist/ferron /usr/local/cargo/bin/ferron && \
+    rm -rf /tmp/ferron.zip /tmp/ferron-dist
 
 # Final image based on Alpine for small size + APK tools
-FROM alpine:3.19
+FROM alpine:3.22
 
 LABEL maintainer="Package Repository Server"
 LABEL description="Multi-format package repository server (deb, rpm, arch, alpine)"
 
 # Install all required tools for package management
+# Note: createrepo_c is only packaged in Alpine's edge/testing repository,
+# so it is installed in a second step from that repository explicitly.
 RUN apk add --no-cache \
     bash \
     curl \
     gnupg \
     supervisor \
     dpkg \
-    createrepo_c \
     rpm \
     pacman \
     apk-tools \
@@ -43,7 +67,10 @@ RUN apk add --no-cache \
     coreutils \
     findutils \
     openssl \
-    ca-certificates
+    ca-certificates \
+    && apk add --no-cache \
+    --repository=https://dl-cdn.alpinelinux.org/alpine/edge/testing \
+    createrepo_c
 
 # Create directory structure for repositories
 RUN mkdir -p \

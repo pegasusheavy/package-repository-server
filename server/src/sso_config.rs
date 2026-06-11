@@ -102,14 +102,12 @@ impl SsoProviderConfig {
         }
 
         match self.provider_type {
-            SsoProviderType::Google =>
-                "https://accounts.google.com/o/oauth2/v2/auth".to_string(),
-            SsoProviderType::GitHub =>
-                "https://github.com/login/oauth/authorize".to_string(),
-            SsoProviderType::GitLab =>
-                "https://gitlab.com/oauth/authorize".to_string(),
-            SsoProviderType::Microsoft | SsoProviderType::Azure =>
-                "https://login.microsoftonline.com/common/oauth2/v2.0/authorize".to_string(),
+            SsoProviderType::Google => "https://accounts.google.com/o/oauth2/v2/auth".to_string(),
+            SsoProviderType::GitHub => "https://github.com/login/oauth/authorize".to_string(),
+            SsoProviderType::GitLab => "https://gitlab.com/oauth/authorize".to_string(),
+            SsoProviderType::Microsoft | SsoProviderType::Azure => {
+                "https://login.microsoftonline.com/common/oauth2/v2.0/authorize".to_string()
+            }
             _ => String::new(),
         }
     }
@@ -121,14 +119,12 @@ impl SsoProviderConfig {
         }
 
         match self.provider_type {
-            SsoProviderType::Google =>
-                "https://oauth2.googleapis.com/token".to_string(),
-            SsoProviderType::GitHub =>
-                "https://github.com/login/oauth/access_token".to_string(),
-            SsoProviderType::GitLab =>
-                "https://gitlab.com/oauth/token".to_string(),
-            SsoProviderType::Microsoft | SsoProviderType::Azure =>
-                "https://login.microsoftonline.com/common/oauth2/v2.0/token".to_string(),
+            SsoProviderType::Google => "https://oauth2.googleapis.com/token".to_string(),
+            SsoProviderType::GitHub => "https://github.com/login/oauth/access_token".to_string(),
+            SsoProviderType::GitLab => "https://gitlab.com/oauth/token".to_string(),
+            SsoProviderType::Microsoft | SsoProviderType::Azure => {
+                "https://login.microsoftonline.com/common/oauth2/v2.0/token".to_string()
+            }
             _ => String::new(),
         }
     }
@@ -140,14 +136,12 @@ impl SsoProviderConfig {
         }
 
         match self.provider_type {
-            SsoProviderType::Google =>
-                "https://www.googleapis.com/oauth2/v2/userinfo".to_string(),
-            SsoProviderType::GitHub =>
-                "https://api.github.com/user".to_string(),
-            SsoProviderType::GitLab =>
-                "https://gitlab.com/api/v4/user".to_string(),
-            SsoProviderType::Microsoft | SsoProviderType::Azure =>
-                "https://graph.microsoft.com/v1.0/me".to_string(),
+            SsoProviderType::Google => "https://www.googleapis.com/oauth2/v2/userinfo".to_string(),
+            SsoProviderType::GitHub => "https://api.github.com/user".to_string(),
+            SsoProviderType::GitLab => "https://gitlab.com/api/v4/user".to_string(),
+            SsoProviderType::Microsoft | SsoProviderType::Azure => {
+                "https://graph.microsoft.com/v1.0/me".to_string()
+            }
             _ => String::new(),
         }
     }
@@ -164,14 +158,8 @@ impl SsoProviderConfig {
                 "profile".to_string(),
                 "email".to_string(),
             ],
-            SsoProviderType::GitHub => vec![
-                "read:user".to_string(),
-                "user:email".to_string(),
-            ],
-            SsoProviderType::GitLab => vec![
-                "read_user".to_string(),
-                "email".to_string(),
-            ],
+            SsoProviderType::GitHub => vec!["read:user".to_string(), "user:email".to_string()],
+            SsoProviderType::GitLab => vec!["read_user".to_string(), "email".to_string()],
             SsoProviderType::Microsoft | SsoProviderType::Azure => vec![
                 "openid".to_string(),
                 "profile".to_string(),
@@ -240,17 +228,16 @@ impl SsoConfig {
             };
         }
 
-        let jwt_secret = std::env::var("SSO_JWT_SECRET")
-            .unwrap_or_else(|_| {
-                tracing::warn!("SSO_JWT_SECRET not set, generating random secret");
-                use sha2::{Digest, Sha256};
-                let random = uuid::Uuid::new_v4();
-                let hash = Sha256::digest(random.as_bytes());
-                hex::encode(hash)
-            });
+        let jwt_secret = std::env::var("SSO_JWT_SECRET").unwrap_or_else(|_| {
+            tracing::warn!("SSO_JWT_SECRET not set, generating random secret");
+            use sha2::{Digest, Sha256};
+            let random = uuid::Uuid::new_v4();
+            let hash = Sha256::digest(random.as_bytes());
+            hex::encode(hash)
+        });
 
-        let base_url = std::env::var("SSO_BASE_URL")
-            .unwrap_or_else(|_| "http://localhost:8080".to_string());
+        let base_url =
+            std::env::var("SSO_BASE_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
 
         let jwt_expiration_seconds = std::env::var("SSO_JWT_EXPIRATION_SECONDS")
             .unwrap_or_else(|_| "86400".to_string())
@@ -274,15 +261,39 @@ impl SsoConfig {
 
         // Load providers from environment
         let mut providers = Vec::new();
-        providers.extend(Self::load_provider_from_env("GOOGLE", SsoProviderType::Google));
-        providers.extend(Self::load_provider_from_env("GITHUB", SsoProviderType::GitHub));
-        providers.extend(Self::load_provider_from_env("GITLAB", SsoProviderType::GitLab));
-        providers.extend(Self::load_provider_from_env("MICROSOFT", SsoProviderType::Microsoft));
-        providers.extend(Self::load_provider_from_env("AZURE", SsoProviderType::Azure));
+        providers.extend(Self::load_provider_from_env(
+            "GOOGLE",
+            SsoProviderType::Google,
+        ));
+        providers.extend(Self::load_provider_from_env(
+            "GITHUB",
+            SsoProviderType::GitHub,
+        ));
+        providers.extend(Self::load_provider_from_env(
+            "GITLAB",
+            SsoProviderType::GitLab,
+        ));
+        providers.extend(Self::load_provider_from_env(
+            "MICROSOFT",
+            SsoProviderType::Microsoft,
+        ));
+        providers.extend(Self::load_provider_from_env(
+            "AZURE",
+            SsoProviderType::Azure,
+        ));
         providers.extend(Self::load_provider_from_env("OKTA", SsoProviderType::Okta));
-        providers.extend(Self::load_provider_from_env("AUTH0", SsoProviderType::Auth0));
-        providers.extend(Self::load_provider_from_env("KEYCLOAK", SsoProviderType::Keycloak));
-        providers.extend(Self::load_provider_from_env("OIDC", SsoProviderType::GenericOidc));
+        providers.extend(Self::load_provider_from_env(
+            "AUTH0",
+            SsoProviderType::Auth0,
+        ));
+        providers.extend(Self::load_provider_from_env(
+            "KEYCLOAK",
+            SsoProviderType::Keycloak,
+        ));
+        providers.extend(Self::load_provider_from_env(
+            "OIDC",
+            SsoProviderType::GenericOidc,
+        ));
 
         Self {
             enabled,
@@ -300,7 +311,10 @@ impl SsoConfig {
     }
 
     /// Load a specific provider configuration from environment variables
-    fn load_provider_from_env(prefix: &str, provider_type: SsoProviderType) -> Option<SsoProviderConfig> {
+    fn load_provider_from_env(
+        prefix: &str,
+        provider_type: SsoProviderType,
+    ) -> Option<SsoProviderConfig> {
         let enabled_key = format!("SSO_{}_ENABLED", prefix);
         let enabled = std::env::var(&enabled_key)
             .unwrap_or_else(|_| "false".to_string())
@@ -327,8 +341,8 @@ impl SsoConfig {
             .map(|s| s.split(',').map(|s| s.trim().to_string()).collect())
             .unwrap_or_default();
 
-        let redirect_uri = std::env::var(format!("SSO_{}_REDIRECT_URI", prefix))
-            .unwrap_or_else(|_| {
+        let redirect_uri =
+            std::env::var(format!("SSO_{}_REDIRECT_URI", prefix)).unwrap_or_else(|_| {
                 let base = std::env::var("SSO_BASE_URL")
                     .unwrap_or_else(|_| "http://localhost:8080".to_string());
                 format!("{}/auth/callback/{}", base, provider_type.as_str())
@@ -368,7 +382,9 @@ impl SsoConfig {
 
     /// Get a provider by its type
     pub fn get_provider(&self, provider_type: &str) -> Option<&SsoProviderConfig> {
-        self.providers.iter().find(|p| p.provider_type.as_str() == provider_type && p.enabled)
+        self.providers
+            .iter()
+            .find(|p| p.provider_type.as_str() == provider_type && p.enabled)
     }
 
     /// Get all enabled providers

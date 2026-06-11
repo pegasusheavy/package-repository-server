@@ -56,6 +56,7 @@ provider "helm" {
 resource "vultr_object_storage" "packages" {
   count            = var.use_object_storage ? 1 : 0
   cluster_id       = var.object_storage_cluster_id
+  tier_id          = var.object_storage_tier_id
   label            = "package-repo-${var.environment}"
 }
 

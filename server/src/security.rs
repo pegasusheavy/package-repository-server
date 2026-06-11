@@ -66,7 +66,7 @@ static REQUEST_COUNTER: AtomicU64 = AtomicU64::new(0);
 const SHELL_ATTACKS: &[&str] = &[
     "#!/bin/sh -e\nrm -rf",
     "#!/bin/bash\nrm -rf",
-    ":(){ :|:& };:",  // Fork bomb
+    ":(){ :|:& };:", // Fork bomb
     "rm -rf /",
     "rm -rf ~",
     "rm -rf /*",
@@ -96,8 +96,8 @@ const CODE_INJECTION: &[&str] = &[
     "shell_exec($_",
     "popen($_",
     "proc_open(",
-    "`$_",  // Backtick execution
-    "preg_replace('/.*/'.'e',",  // PHP code execution
+    "`$_",                      // Backtick execution
+    "preg_replace('/.*/'.'e',", // PHP code execution
     "__import__('os').system(",
     "subprocess.call(",
     "subprocess.Popen(",
@@ -201,39 +201,78 @@ const DATA_EXFIL: &[&str] = &[
     "BEGIN PRIVATE KEY",
     "BEGIN EC PRIVATE",
     "BEGIN OPENSSH PRIVATE",
-    "AKIA",  // AWS access key prefix
-    "ghp_",  // GitHub personal access token
-    "gho_",  // GitHub OAuth token
-    "ghu_",  // GitHub user token
-    "ghs_",  // GitHub server token
-    "ghr_",  // GitHub refresh token
+    "AKIA", // AWS access key prefix
+    "ghp_", // GitHub personal access token
+    "gho_", // GitHub OAuth token
+    "ghu_", // GitHub user token
+    "ghs_", // GitHub server token
+    "ghr_", // GitHub refresh token
 ];
 
 /// Dangerous file extensions (comprehensive)
 const DANGEROUS_EXTENSIONS: &[&str] = &[
     // Windows executables
-    ".exe", ".dll", ".sys", ".drv", ".ocx", ".cpl", ".scr",
+    ".exe",
+    ".dll",
+    ".sys",
+    ".drv",
+    ".ocx",
+    ".cpl",
+    ".scr",
     // Windows scripts
-    ".bat", ".cmd", ".com", ".pif", ".ps1", ".ps1xml", ".ps2", ".ps2xml",
-    ".psc1", ".psc2", ".psm1", ".psd1", ".vbs", ".vbe", ".wsf", ".wsh",
-    ".ws", ".wsc", ".jse", ".hta", ".msc",
+    ".bat",
+    ".cmd",
+    ".com",
+    ".pif",
+    ".ps1",
+    ".ps1xml",
+    ".ps2",
+    ".ps2xml",
+    ".psc1",
+    ".psc2",
+    ".psm1",
+    ".psd1",
+    ".vbs",
+    ".vbe",
+    ".wsf",
+    ".wsh",
+    ".ws",
+    ".wsc",
+    ".jse",
+    ".hta",
+    ".msc",
     // Installers
-    ".msi", ".msp", ".mst", ".gadget", ".application",
+    ".msi",
+    ".msp",
+    ".mst",
+    ".gadget",
+    ".application",
     // Macros and templates
-    ".docm", ".xlsm", ".pptm", ".potm", ".ppam", ".sldm",
+    ".docm",
+    ".xlsm",
+    ".pptm",
+    ".potm",
+    ".ppam",
+    ".sldm",
     // Other dangerous
-    ".reg", ".inf", ".lnk", ".url", ".terminal",
+    ".reg",
+    ".inf",
+    ".lnk",
+    ".url",
+    ".terminal",
     // Unix executables (might be suspicious in packages)
-    ".elf", ".bin", ".run", ".appimage",
+    ".elf",
+    ".bin",
+    ".run",
+    ".appimage",
 ];
 
 /// Reserved/dangerous filenames
 const RESERVED_NAMES: &[&str] = &[
-    "CON", "PRN", "AUX", "NUL",
-    "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-    "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
-    "CLOCK$", "$MFT", "$MFTMIRR", "$LOGFILE", "$VOLUME", "$ATTRDEF",
-    "$BITMAP", "$BOOT", "$BADCLUS", "$SECURE", "$UPCASE", "$EXTEND",
+    "CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8",
+    "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9", "CLOCK$",
+    "$MFT", "$MFTMIRR", "$LOGFILE", "$VOLUME", "$ATTRDEF", "$BITMAP", "$BOOT", "$BADCLUS",
+    "$SECURE", "$UPCASE", "$EXTEND",
 ];
 
 /// Executable magic bytes (file signatures)
@@ -408,7 +447,7 @@ pub fn mask_sensitive(data: &str) -> String {
     if data.len() <= 8 {
         return "*".repeat(data.len());
     }
-    format!("{}...{}", &data[..4], &data[data.len()-4..])
+    format!("{}...{}", &data[..4], &data[data.len() - 4..])
 }
 
 // ============================================================================
@@ -456,7 +495,10 @@ pub fn validate_api_key_format(key: &str) -> SecurityCheckResult {
     // Check entropy
     let entropy = calculate_string_entropy(key);
     if entropy < 3.0 {
-        result.error(format!("API key has insufficient entropy: {:.2} bits/char", entropy));
+        result.error(format!(
+            "API key has insufficient entropy: {:.2} bits/char",
+            entropy
+        ));
     } else if entropy < 4.0 {
         result.warn(format!("API key has low entropy: {:.2} bits/char", entropy));
     }
@@ -464,8 +506,8 @@ pub fn validate_api_key_format(key: &str) -> SecurityCheckResult {
     // Check for common weak patterns
     let lower = key.to_lowercase();
     let weak_patterns = [
-        "123456", "abcdef", "qwerty", "password", "admin", "root",
-        "test", "demo", "secret", "token", "api_key", "apikey",
+        "123456", "abcdef", "qwerty", "password", "admin", "root", "test", "demo", "secret",
+        "token", "api_key", "apikey",
     ];
     for pattern in weak_patterns {
         if lower.contains(pattern) {
@@ -552,14 +594,23 @@ pub fn validate_package_name(name: &str, pkg_type: &str) -> SecurityCheckResult 
         "cargo" => {
             result.check("cargo_name_rules");
             // Cargo: alphanumeric, hyphens, underscores, must start with letter
-            if !name.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false) {
+            if !name
+                .chars()
+                .next()
+                .map(|c| c.is_ascii_alphabetic())
+                .unwrap_or(false)
+            {
                 result.warn("Cargo crate names should start with a letter");
             }
             if name.starts_with('-') || name.starts_with('_') {
                 result.error("Cargo crate names cannot start with hyphen or underscore");
             }
-            if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_') {
-                result.error("Cargo crate names must be alphanumeric with hyphens/underscores only");
+            if !name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+            {
+                result
+                    .error("Cargo crate names must be alphanumeric with hyphens/underscores only");
             }
             // Check for reserved crate names
             let reserved_crates = ["std", "core", "alloc", "proc_macro", "test"];
@@ -589,31 +640,50 @@ pub fn validate_package_name(name: &str, pkg_type: &str) -> SecurityCheckResult 
             if check_name.starts_with('.') || check_name.starts_with('_') {
                 result.error("npm package names cannot start with . or _");
             }
-            if !check_name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.') {
-                result.error("npm package names must be alphanumeric with hyphens/underscores/dots");
+            if !check_name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+            {
+                result
+                    .error("npm package names must be alphanumeric with hyphens/underscores/dots");
             }
         }
         "pypi" => {
             result.check("pypi_name_rules");
-            if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.') {
-                result.error("PyPI package names must be alphanumeric with hyphens/underscores/dots");
+            if !name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+            {
+                result
+                    .error("PyPI package names must be alphanumeric with hyphens/underscores/dots");
             }
         }
         "nuget" => {
             result.check("nuget_name_rules");
-            if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_') {
+            if !name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '_')
+            {
                 result.error("NuGet package names must be alphanumeric with dots/underscores");
             }
         }
         "maven" => {
             result.check("maven_name_rules");
-            if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.') {
-                result.error("Maven artifact names must be alphanumeric with hyphens/underscores/dots");
+            if !name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+            {
+                result.error(
+                    "Maven artifact names must be alphanumeric with hyphens/underscores/dots",
+                );
             }
         }
         _ => {
             result.check("generic_name_rules");
-            if !name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.') {
+            if !name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == '.')
+            {
                 result.error("Package names must be alphanumeric with hyphens/underscores/dots");
             }
         }
@@ -662,9 +732,10 @@ pub fn validate_version(version: &str) -> SecurityCheckResult {
     }
 
     // Valid semver-like characters only
-    if !version.chars().all(|c| {
-        c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '+' || c == '_'
-    }) {
+    if !version
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || c == '.' || c == '-' || c == '+' || c == '_')
+    {
         result.error("Version contains invalid characters");
     }
 
@@ -733,7 +804,11 @@ pub fn sanitize_filename(filename: &str) -> Result<String, String> {
     }
 
     if filename.len() > MAX_FILENAME_LENGTH {
-        return Err(format!("Filename too long: {} > {}", filename.len(), MAX_FILENAME_LENGTH));
+        return Err(format!(
+            "Filename too long: {} > {}",
+            filename.len(),
+            MAX_FILENAME_LENGTH
+        ));
     }
 
     // Reject null bytes outright
@@ -833,12 +908,10 @@ pub fn detect_executable_magic(data: &[u8]) -> Option<&'static str> {
 /// Check for dangerous file extension
 pub fn is_dangerous_extension(filename: &str) -> Option<&'static str> {
     let lower = filename.to_lowercase();
-    for ext in DANGEROUS_EXTENSIONS {
-        if lower.ends_with(ext) {
-            return Some(ext);
-        }
-    }
-    None
+    DANGEROUS_EXTENSIONS
+        .iter()
+        .find(|&ext| lower.ends_with(ext))
+        .map(|v| v as _)
 }
 
 /// Comprehensive content scanning
@@ -887,12 +960,12 @@ pub fn scan_package_content(data: &[u8], pkg_type: &str) -> SecurityCheckResult 
         };
 
         if !allowed {
-            result.error(format!(
-                "Package contains executable code: {}",
+            result.error(format!("Package contains executable code: {}", exec_type));
+        } else {
+            result.warn(format!(
+                "Package contains expected executable: {}",
                 exec_type
             ));
-        } else {
-            result.warn(format!("Package contains expected executable: {}", exec_type));
         }
     }
 
@@ -920,32 +993,40 @@ fn scan_text_for_malware(content: &str, result: &mut SecurityCheckResult) {
     // Shell attacks
     for pattern in SHELL_ATTACKS {
         if content.contains(pattern) {
-            result.error(format!("Malicious shell command detected: '{}'",
-                &pattern[..pattern.len().min(30)]));
+            result.error(format!(
+                "Malicious shell command detected: '{}'",
+                &pattern[..pattern.len().min(30)]
+            ));
         }
     }
 
     // Code injection
     for pattern in CODE_INJECTION {
         if content.to_lowercase().contains(&pattern.to_lowercase()) {
-            result.error(format!("Code injection pattern detected: '{}'",
-                &pattern[..pattern.len().min(30)]));
+            result.error(format!(
+                "Code injection pattern detected: '{}'",
+                &pattern[..pattern.len().min(30)]
+            ));
         }
     }
 
     // Reverse shells
     for pattern in REVERSE_SHELLS {
         if content.contains(pattern) {
-            result.error(format!("Reverse shell pattern detected: '{}'",
-                &pattern[..pattern.len().min(30)]));
+            result.error(format!(
+                "Reverse shell pattern detected: '{}'",
+                &pattern[..pattern.len().min(30)]
+            ));
         }
     }
 
     // Windows malware
     for pattern in WINDOWS_MALWARE {
         if content.to_lowercase().contains(&pattern.to_lowercase()) {
-            result.error(format!("Windows malware pattern detected: '{}'",
-                &pattern[..pattern.len().min(30)]));
+            result.error(format!(
+                "Windows malware pattern detected: '{}'",
+                &pattern[..pattern.len().min(30)]
+            ));
         }
     }
 
@@ -1020,12 +1101,18 @@ fn scan_npm_package(data: &[u8]) -> SecurityCheckResult {
             if let Ok(content) = std::str::from_utf8(&decompressed) {
                 // Check for suspicious npm scripts
                 let suspicious_scripts = [
-                    "\"preinstall\"", "\"postinstall\"", "\"preuninstall\"",
-                    "\"prepublish\"", "\"prepare\"",
+                    "\"preinstall\"",
+                    "\"postinstall\"",
+                    "\"preuninstall\"",
+                    "\"prepublish\"",
+                    "\"prepare\"",
                 ];
                 for script in suspicious_scripts {
                     if content.contains(script) {
-                        result.warn(format!("Package contains {} hook - review carefully", script));
+                        result.warn(format!(
+                            "Package contains {} hook - review carefully",
+                            script
+                        ));
                     }
                 }
             }
@@ -1146,8 +1233,7 @@ fn scan_zip_archive(data: &[u8], pkg_type: &str) -> SecurityCheckResult {
             if file_count > MAX_ARCHIVE_FILES {
                 result.error(format!(
                     "Archive contains too many files: {} > {}",
-                    file_count,
-                    MAX_ARCHIVE_FILES
+                    file_count, MAX_ARCHIVE_FILES
                 ));
                 return result;
             }
@@ -1180,7 +1266,10 @@ fn scan_zip_archive(data: &[u8], pkg_type: &str) -> SecurityCheckResult {
 
                     // Symlink check
                     if file.is_symlink() {
-                        result.error(format!("Archive contains symlink: {} (potential attack vector)", name));
+                        result.error(format!(
+                            "Archive contains symlink: {} (potential attack vector)",
+                            name
+                        ));
                         continue;
                     }
 
@@ -1206,7 +1295,10 @@ fn scan_zip_archive(data: &[u8], pkg_type: &str) -> SecurityCheckResult {
                     }
 
                     // Check for hidden files
-                    if name.split('/').any(|part| part.starts_with('.') && part != ".") {
+                    if name
+                        .split('/')
+                        .any(|part| part.starts_with('.') && part != ".")
+                    {
                         result.warn(format!("Archive contains hidden file: {}", name));
                     }
                 }
@@ -1277,7 +1369,11 @@ pub fn log_auth_failure(reason: &str, client_ip: Option<&str>) {
 pub fn log_malicious_upload(package_name: &str, reason: &str, client_ip: Option<&str>) {
     log_security_event(
         "MALICIOUS_UPLOAD",
-        &format!("package={}, reason={}", mask_sensitive(package_name), reason),
+        &format!(
+            "package={}, reason={}",
+            mask_sensitive(package_name),
+            reason
+        ),
         client_ip,
         None,
     );
@@ -1393,7 +1489,10 @@ mod tests {
     fn test_sanitize_filename() {
         assert_eq!(sanitize_filename("test.tar.gz").unwrap(), "test.tar.gz");
         assert_eq!(sanitize_filename("test/file.txt").unwrap(), "test_file.txt");
-        assert_eq!(sanitize_filename("test\\file.txt").unwrap(), "test_file.txt");
+        assert_eq!(
+            sanitize_filename("test\\file.txt").unwrap(),
+            "test_file.txt"
+        );
         assert!(sanitize_filename("").is_err());
         assert!(sanitize_filename("...").is_err());
         assert!(sanitize_filename("CON").is_err());

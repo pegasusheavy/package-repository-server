@@ -117,13 +117,19 @@ impl JwtManager {
     }
 
     /// Generate a JWT token from claims
-    pub fn generate_token(&self, claims: &SessionClaims) -> Result<String, jsonwebtoken::errors::Error> {
+    pub fn generate_token(
+        &self,
+        claims: &SessionClaims,
+    ) -> Result<String, jsonwebtoken::errors::Error> {
         let header = Header::new(Algorithm::HS256);
         encode(&header, claims, &self.encoding_key)
     }
 
     /// Validate and decode a JWT token
-    pub fn validate_token(&self, token: &str) -> Result<SessionClaims, jsonwebtoken::errors::Error> {
+    pub fn validate_token(
+        &self,
+        token: &str,
+    ) -> Result<SessionClaims, jsonwebtoken::errors::Error> {
         let token_data = decode::<SessionClaims>(token, &self.decoding_key, &self.validation)?;
 
         // Additional expiration check
@@ -140,11 +146,9 @@ impl JwtManager {
     pub fn extract_token_from_header(auth_header: &str) -> Option<String> {
         let trimmed = auth_header.trim();
 
-        if let Some(token) = trimmed.strip_prefix("Bearer ") {
-            Some(token.trim().to_string())
-        } else {
-            None
-        }
+        trimmed
+            .strip_prefix("Bearer ")
+            .map(|token| token.trim().to_string())
     }
 }
 
@@ -211,8 +215,8 @@ impl UserProfile {
         allowed_emails.iter().any(|e| {
             let pattern = e.to_lowercase();
             // Support wildcards like *@example.com
-            if pattern.starts_with('*') {
-                email_lower.ends_with(&pattern[1..])
+            if let Some(suffix) = pattern.strip_prefix('*') {
+                email_lower.ends_with(suffix)
             } else {
                 email_lower == pattern
             }
@@ -252,10 +256,14 @@ mod tests {
             true,
         );
 
-        let token = manager.generate_token(&claims).expect("Failed to generate token");
+        let token = manager
+            .generate_token(&claims)
+            .expect("Failed to generate token");
         assert!(!token.is_empty());
 
-        let decoded = manager.validate_token(&token).expect("Failed to validate token");
+        let decoded = manager
+            .validate_token(&token)
+            .expect("Failed to validate token");
         assert_eq!(decoded.email, claims.email);
         assert_eq!(decoded.provider, claims.provider);
     }

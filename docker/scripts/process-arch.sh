@@ -58,7 +58,8 @@ add_package() {
 
     # Extract package info from filename
     # Format: name-version-release-arch.pkg.tar.zst
-    local filename=$(basename "$pkg_file")
+    local filename
+    filename=$(basename "$pkg_file")
     local pkg_arch=""
 
     # Detect architecture from filename
@@ -132,7 +133,8 @@ rebuild_repo() {
             rm -f "$arch_dir/$REPO_NAME.db"* "$arch_dir/$REPO_NAME.files"*
 
             # Rebuild from packages
-            local packages=$(find "$arch_dir" -name "*.pkg.tar.*" -not -name "*.sig" 2>/dev/null)
+            local packages
+            packages=$(find "$arch_dir" -name "*.pkg.tar.*" -not -name "*.sig" 2>/dev/null)
             if [ -n "$packages" ]; then
                 repo-add "$arch_dir/$REPO_NAME.db.tar.gz" $packages
             else

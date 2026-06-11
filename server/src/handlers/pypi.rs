@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use tokio::fs;
 use tracing::{error, info};
 
-use crate::AppState;
 use crate::utils::version_compare_optimized;
+use crate::AppState;
 
 use super::auth::validate_api_key;
 
@@ -77,7 +77,10 @@ struct PypiDigests {
 fn get_package_path(data_dir: &str, package_name: &str) -> PathBuf {
     // Normalize package name (PEP 503: lowercase, replace [-_.] with -)
     let normalized = normalize_package_name(package_name);
-    PathBuf::from(data_dir).join("pypi").join("packages").join(&normalized)
+    PathBuf::from(data_dir)
+        .join("pypi")
+        .join("packages")
+        .join(&normalized)
 }
 
 fn normalize_package_name(name: &str) -> String {
@@ -88,10 +91,7 @@ fn normalize_package_name(name: &str) -> String {
 }
 
 /// GET /pypi/simple/ - List all packages (Simple API)
-pub async fn simple_index(
-    req: HttpRequest,
-    state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn simple_index(req: HttpRequest, state: web::Data<AppState>) -> impl Responder {
     if !validate_api_key(&req, &state) {
         return HttpResponse::Unauthorized().body("Authentication required");
     }
@@ -113,7 +113,10 @@ pub async fn simple_index(
 
     let mut html = String::from("<!DOCTYPE html>\n<html>\n<head><title>Simple Index</title></head>\n<body>\n<h1>Simple Index</h1>\n");
     for pkg in packages {
-        html.push_str(&format!("<a href=\"/pypi/simple/{}/\">{}</a><br/>\n", pkg, pkg));
+        html.push_str(&format!(
+            "<a href=\"/pypi/simple/{}/\">{}</a><br/>\n",
+            pkg, pkg
+        ));
     }
     html.push_str("</body>\n</html>");
 
@@ -137,10 +140,16 @@ pub async fn simple_package(
     let package_path = get_package_path(&state.data_dir, &package_name);
     let metadata_file = package_path.join("metadata.json");
 
-    let host = req.headers().get("Host")
+    let host = req
+        .headers()
+        .get("Host")
         .and_then(|h| h.to_str().ok())
         .unwrap_or("localhost");
-    let scheme = if req.connection_info().scheme() == "https" { "https" } else { "http" };
+    let scheme = if req.connection_info().scheme() == "https" {
+        "https"
+    } else {
+        "http"
+    };
 
     let metadata: PypiPackageMetadata = match fs::read_to_string(&metadata_file).await {
         Ok(content) => match serde_json::from_str(&content) {
@@ -155,7 +164,7 @@ pub async fn simple_package(
         normalized, normalized
     );
 
-    for (_, version_meta) in &metadata.versions {
+    for version_meta in metadata.versions.values() {
         for file in &version_meta.files {
             let url = format!(
                 "{}://{}/pypi/packages/{}/{}/{}#sha256={}",
@@ -163,7 +172,10 @@ pub async fn simple_package(
             );
             let mut attrs = format!("href=\"{}\"", url);
             if let Some(ref req_py) = file.requires_python {
-                attrs.push_str(&format!(" data-requires-python=\"{}\"", html_escape(req_py)));
+                attrs.push_str(&format!(
+                    " data-requires-python=\"{}\"",
+                    html_escape(req_py)
+                ));
             }
             html.push_str(&format!("<a {}>{}</a><br/>\n", attrs, file.filename));
         }
@@ -190,7 +202,8 @@ pub async fn package_json(
     path: web::Path<String>,
 ) -> impl Responder {
     if !validate_api_key(&req, &state) {
-        return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Authentication required"}));
+        return HttpResponse::Unauthorized()
+            .json(serde_json::json!({"error": "Authentication required"}));
     }
 
     let package_name = path.into_inner();
@@ -204,7 +217,8 @@ pub async fn version_json(
     path: web::Path<(String, String)>,
 ) -> impl Responder {
     if !validate_api_key(&req, &state) {
-        return HttpResponse::Unauthorized().json(serde_json::json!({"error": "Authentication required"}));
+        return HttpResponse::Unauthorized()
+            .json(serde_json::json!({"error": "Authentication required"}));
     }
 
     let (package_name, version) = path.into_inner();
@@ -220,17 +234,28 @@ async fn get_package_json_internal(
     let package_path = get_package_path(&state.data_dir, package_name);
     let metadata_file = package_path.join("metadata.json");
 
-    let host = req.headers().get("Host")
+    let host = req
+        .headers()
+        .get("Host")
         .and_then(|h| h.to_str().ok())
         .unwrap_or("localhost");
-    let scheme = if req.connection_info().scheme() == "https" { "https" } else { "http" };
+    let scheme = if req.connection_info().scheme() == "https" {
+        "https"
+    } else {
+        "http"
+    };
 
     let metadata: PypiPackageMetadata = match fs::read_to_string(&metadata_file).await {
         Ok(content) => match serde_json::from_str(&content) {
             Ok(m) => m,
-            Err(_) => return HttpResponse::NotFound().json(serde_json::json!({"error": "Package not found"})),
+            Err(_) => {
+                return HttpResponse::NotFound()
+                    .json(serde_json::json!({"error": "Package not found"}))
+            }
         },
-        Err(_) => return HttpResponse::NotFound().json(serde_json::json!({"error": "Package not found"})),
+        Err(_) => {
+            return HttpResponse::NotFound().json(serde_json::json!({"error": "Package not found"}))
+        }
     };
 
     let normalized = normalize_package_name(package_name);
@@ -239,7 +264,9 @@ async fn get_package_json_internal(
     let latest_version = if let Some(v) = version_filter {
         v.to_string()
     } else {
-        metadata.versions.keys()
+        metadata
+            .versions
+            .keys()
             .max_by(|a, b| version_compare(a, b))
             .cloned()
             .unwrap_or_default()
@@ -247,21 +274,30 @@ async fn get_package_json_internal(
 
     let version_meta = match metadata.versions.get(&latest_version) {
         Some(v) => v,
-        None => return HttpResponse::NotFound().json(serde_json::json!({"error": "Version not found"})),
+        None => {
+            return HttpResponse::NotFound().json(serde_json::json!({"error": "Version not found"}))
+        }
     };
 
     // Build releases map
     let mut releases: HashMap<String, Vec<PypiReleaseFile>> = HashMap::new();
     for (ver, ver_meta) in &metadata.versions {
-        let files: Vec<PypiReleaseFile> = ver_meta.files.iter().map(|f| {
-            PypiReleaseFile {
+        let files: Vec<PypiReleaseFile> = ver_meta
+            .files
+            .iter()
+            .map(|f| PypiReleaseFile {
                 filename: f.filename.clone(),
-                url: format!("{}://{}/pypi/packages/{}/{}/{}", scheme, host, normalized, ver, f.filename),
+                url: format!(
+                    "{}://{}/pypi/packages/{}/{}/{}",
+                    scheme, host, normalized, ver, f.filename
+                ),
                 size: f.size,
-                digests: PypiDigests { sha256: f.sha256.clone() },
+                digests: PypiDigests {
+                    sha256: f.sha256.clone(),
+                },
                 requires_python: f.requires_python.clone(),
-            }
-        }).collect();
+            })
+            .collect();
         releases.insert(ver.clone(), files);
     }
 
@@ -358,7 +394,10 @@ pub async fn upload_package(
 
         if filename.is_some() && (field_name == "content" || data.len() > 1000) {
             // This is the file upload
-            file_data = Some((filename.unwrap_or_else(|| "unknown.tar.gz".to_string()), data));
+            file_data = Some((
+                filename.unwrap_or_else(|| "unknown.tar.gz".to_string()),
+                data,
+            ));
         } else {
             // This is a form field
             let value = String::from_utf8_lossy(&data).to_string();
@@ -411,17 +450,18 @@ pub async fn upload_package(
 
     // Update metadata
     let metadata_file = package_path.join("metadata.json");
-    let mut metadata: PypiPackageMetadata = if let Ok(content) = fs::read_to_string(&metadata_file).await {
-        serde_json::from_str(&content).unwrap_or(PypiPackageMetadata {
-            name: name.clone(),
-            versions: HashMap::new(),
-        })
-    } else {
-        PypiPackageMetadata {
-            name: name.clone(),
-            versions: HashMap::new(),
-        }
-    };
+    let mut metadata: PypiPackageMetadata =
+        if let Ok(content) = fs::read_to_string(&metadata_file).await {
+            serde_json::from_str(&content).unwrap_or(PypiPackageMetadata {
+                name: name.clone(),
+                versions: HashMap::new(),
+            })
+        } else {
+            PypiPackageMetadata {
+                name: name.clone(),
+                versions: HashMap::new(),
+            }
+        };
 
     let file_info = PypiFileInfo {
         filename: filename.clone(),
@@ -437,16 +477,19 @@ pub async fn upload_package(
         }
     } else {
         // Create new version
-        metadata.versions.insert(version.clone(), PypiVersionMetadata {
-            version: version.clone(),
-            summary,
-            author,
-            author_email,
-            license,
-            requires_python,
-            requires_dist,
-            files: vec![file_info],
-        });
+        metadata.versions.insert(
+            version.clone(),
+            PypiVersionMetadata {
+                version: version.clone(),
+                summary,
+                author,
+                author_email,
+                license,
+                requires_python,
+                requires_dist,
+                files: vec![file_info],
+            },
+        );
     }
 
     // Write metadata
@@ -463,7 +506,10 @@ pub async fn upload_package(
         return HttpResponse::InternalServerError().body("Failed to write metadata");
     }
 
-    info!("Published PyPI package {} version {} ({})", normalized, version, filename);
+    info!(
+        "Published PyPI package {} version {} ({})",
+        normalized, version, filename
+    );
 
     HttpResponse::Ok().body("Package uploaded successfully")
 }
@@ -492,9 +538,7 @@ pub async fn download_package(
                 "application/octet-stream"
             };
 
-            HttpResponse::Ok()
-                .content_type(content_type)
-                .body(data)
+            HttpResponse::Ok().content_type(content_type).body(data)
         }
         Err(_) => HttpResponse::NotFound().body("File not found"),
     }

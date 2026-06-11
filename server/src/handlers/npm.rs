@@ -7,11 +7,11 @@ use std::path::PathBuf;
 use tokio::fs;
 use tracing::{error, info, warn};
 
-use crate::AppState;
 use crate::security::{
-    log_malicious_upload, scan_package_content, validate_package_name,
-    validate_path_safe, MAX_PACKAGE_SIZE,
+    log_malicious_upload, scan_package_content, validate_package_name, validate_path_safe,
+    MAX_PACKAGE_SIZE,
 };
+use crate::AppState;
 
 use super::auth::{get_client_ip, validate_api_key};
 use super::registry_types::{
@@ -68,29 +68,28 @@ pub async fn get_scoped_packument(
     get_packument_internal(&state.data_dir, &package_name, &req).await
 }
 
-async fn get_packument_internal(data_dir: &str, package_name: &str, _req: &HttpRequest) -> HttpResponse {
+async fn get_packument_internal(
+    data_dir: &str,
+    package_name: &str,
+    _req: &HttpRequest,
+) -> HttpResponse {
     let package_path = get_package_path(data_dir, package_name);
     let packument_file = package_path.join("packument.json");
 
     match fs::read_to_string(&packument_file).await {
-        Ok(content) => {
-            match serde_json::from_str::<NpmPackument>(&content) {
-                Ok(packument) => HttpResponse::Ok()
-                    .content_type("application/json")
-                    .json(packument),
-                Err(e) => {
-                    error!("Failed to parse packument: {}", e);
-                    HttpResponse::InternalServerError()
-                        .json(NpmApiError::new("corrupted package metadata"))
-                }
+        Ok(content) => match serde_json::from_str::<NpmPackument>(&content) {
+            Ok(packument) => HttpResponse::Ok()
+                .content_type("application/json")
+                .json(packument),
+            Err(e) => {
+                error!("Failed to parse packument: {}", e);
+                HttpResponse::InternalServerError()
+                    .json(NpmApiError::new("corrupted package metadata"))
             }
-        }
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            HttpResponse::NotFound().json(NpmApiError::with_reason(
-                "not_found",
-                &format!("package {} not found", package_name),
-            ))
-        }
+        },
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => HttpResponse::NotFound().json(
+            NpmApiError::with_reason("not_found", &format!("package {} not found", package_name)),
+        ),
         Err(e) => {
             error!("Failed to read packument {:?}: {}", packument_file, e);
             HttpResponse::InternalServerError()
@@ -143,8 +142,15 @@ async fn publish_package_internal(
     // ========== SECURITY: Validate package name ==========
     let name_check = validate_package_name(package_name, "npm");
     if !name_check.passed {
-        warn!("Rejected invalid npm package name '{}': {:?} from {:?}", package_name, name_check.errors, client_ip);
-        log_malicious_upload(package_name, &name_check.errors.join(", "), client_ip.as_deref());
+        warn!(
+            "Rejected invalid npm package name '{}': {:?} from {:?}",
+            package_name, name_check.errors, client_ip
+        );
+        log_malicious_upload(
+            package_name,
+            &name_check.errors.join(", "),
+            client_ip.as_deref(),
+        );
         return HttpResponse::BadRequest().json(NpmApiError::with_reason(
             "bad_request",
             &format!("invalid package name: {}", name_check.errors.join(", ")),
@@ -153,7 +159,10 @@ async fn publish_package_internal(
 
     // Validate package name matches payload
     if payload.name != package_name {
-        warn!("Package name mismatch: URL='{}' payload='{}' from {:?}", package_name, payload.name, client_ip);
+        warn!(
+            "Package name mismatch: URL='{}' payload='{}' from {:?}",
+            package_name, payload.name, client_ip
+        );
         return HttpResponse::BadRequest().json(NpmApiError::with_reason(
             "bad_request",
             "package name mismatch",
@@ -164,12 +173,20 @@ async fn publish_package_internal(
     let package_path = get_package_path(data_dir, package_name);
 
     // ========== SECURITY: Validate path is within allowed directory ==========
-    let relative_path = package_path.strip_prefix(&npm_base).unwrap_or(&package_path);
+    let relative_path = package_path
+        .strip_prefix(&npm_base)
+        .unwrap_or(&package_path);
     let path_check = validate_path_safe(relative_path, &npm_base);
     if !path_check.passed {
-        error!("SECURITY: Path traversal attempt detected for npm package '{}': {:?} from {:?}",
-            package_name, path_check.errors, client_ip);
-        log_malicious_upload(package_name, &format!("path traversal: {}", path_check.errors.join(", ")), client_ip.as_deref());
+        error!(
+            "SECURITY: Path traversal attempt detected for npm package '{}': {:?} from {:?}",
+            package_name, path_check.errors, client_ip
+        );
+        log_malicious_upload(
+            package_name,
+            &format!("path traversal: {}", path_check.errors.join(", ")),
+            client_ip.as_deref(),
+        );
         return HttpResponse::BadRequest().json(NpmApiError::with_reason(
             "bad_request",
             "invalid package path",
@@ -199,10 +216,19 @@ async fn publish_package_internal(
     for (filename, attachment) in &payload.attachments {
         // ========== SECURITY: Validate filename ==========
         if filename.contains("..") || filename.contains('/') || filename.contains('\\') {
-            error!("SECURITY: Invalid tarball filename '{}' from {:?}", filename, client_ip);
-            log_malicious_upload(package_name, &format!("invalid filename: {}", filename), client_ip.as_deref());
-            return HttpResponse::BadRequest()
-                .json(NpmApiError::with_reason("bad_request", "invalid tarball filename"));
+            error!(
+                "SECURITY: Invalid tarball filename '{}' from {:?}",
+                filename, client_ip
+            );
+            log_malicious_upload(
+                package_name,
+                &format!("invalid filename: {}", filename),
+                client_ip.as_deref(),
+            );
+            return HttpResponse::BadRequest().json(NpmApiError::with_reason(
+                "bad_request",
+                "invalid tarball filename",
+            ));
         }
 
         // Decode base64 tarball
@@ -210,14 +236,20 @@ async fn publish_package_internal(
             Ok(data) => data,
             Err(e) => {
                 error!("Failed to decode tarball base64: {}", e);
-                return HttpResponse::BadRequest()
-                    .json(NpmApiError::with_reason("bad_request", "invalid tarball encoding"));
+                return HttpResponse::BadRequest().json(NpmApiError::with_reason(
+                    "bad_request",
+                    "invalid tarball encoding",
+                ));
             }
         };
 
         // ========== SECURITY: Check tarball size ==========
         if tarball_data.len() > MAX_PACKAGE_SIZE {
-            warn!("Rejected oversized npm tarball: {} bytes from {:?}", tarball_data.len(), client_ip);
+            warn!(
+                "Rejected oversized npm tarball: {} bytes from {:?}",
+                tarball_data.len(),
+                client_ip
+            );
             return HttpResponse::PayloadTooLarge()
                 .json(NpmApiError::with_reason("bad_request", "tarball too large"));
         }
@@ -225,16 +257,27 @@ async fn publish_package_internal(
         // ========== SECURITY: Scan tarball content ==========
         let security_scan = scan_package_content(&tarball_data, "npm");
         if !security_scan.passed {
-            error!("SECURITY: Rejected malicious npm package '{}': {:?} from {:?}",
-                package_name, security_scan.errors, client_ip);
-            log_malicious_upload(package_name, &security_scan.errors.join(", "), client_ip.as_deref());
-            return HttpResponse::BadRequest()
-                .json(NpmApiError::with_reason("bad_request", &format!("package rejected: {}", security_scan.errors.join(", "))));
+            error!(
+                "SECURITY: Rejected malicious npm package '{}': {:?} from {:?}",
+                package_name, security_scan.errors, client_ip
+            );
+            log_malicious_upload(
+                package_name,
+                &security_scan.errors.join(", "),
+                client_ip.as_deref(),
+            );
+            return HttpResponse::BadRequest().json(NpmApiError::with_reason(
+                "bad_request",
+                &format!("package rejected: {}", security_scan.errors.join(", ")),
+            ));
         }
 
         // Log any warnings from security scan
         for warning in &security_scan.warnings {
-            warn!("Security warning for npm package '{}': {}", package_name, warning);
+            warn!(
+                "Security warning for npm package '{}': {}",
+                package_name, warning
+            );
         }
 
         // Write tarball
@@ -316,7 +359,11 @@ async fn publish_package_internal(
         }
 
         // Calculate checksums and update dist
-        let tarball_name = format!("{}-{}.tgz", package_name.replace('/', "-").trim_start_matches('@'), version);
+        let tarball_name = format!(
+            "{}-{}.tgz",
+            package_name.replace('/', "-").trim_start_matches('@'),
+            version
+        );
         let tarball_path = package_path.join(&tarball_name);
 
         if let Ok(tarball_data) = fs::read(&tarball_path).await {
@@ -327,17 +374,10 @@ async fn publish_package_internal(
             );
 
             // Build tarball URL
-            let tarball_url = if package_name.starts_with('@') {
-                format!(
-                    "{}://{}/npm/{}/-/{}",
-                    scheme, host, package_name, tarball_name
-                )
-            } else {
-                format!(
-                    "{}://{}/npm/{}/-/{}",
-                    scheme, host, package_name, tarball_name
-                )
-            };
+            let tarball_url = format!(
+                "{}://{}/npm/{}/-/{}",
+                scheme, host, package_name, tarball_name
+            );
 
             version_meta.dist = NpmDist {
                 tarball: tarball_url,
@@ -418,7 +458,11 @@ pub async fn download_scoped_tarball(
     download_tarball_internal(&state.data_dir, &package_name, &tarball).await
 }
 
-async fn download_tarball_internal(data_dir: &str, package_name: &str, tarball: &str) -> HttpResponse {
+async fn download_tarball_internal(
+    data_dir: &str,
+    package_name: &str,
+    tarball: &str,
+) -> HttpResponse {
     let package_path = get_package_path(data_dir, package_name);
     let tarball_path = package_path.join(tarball);
 
@@ -426,25 +470,18 @@ async fn download_tarball_internal(data_dir: &str, package_name: &str, tarball: 
         Ok(data) => HttpResponse::Ok()
             .content_type("application/gzip")
             .body(data),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            HttpResponse::NotFound().json(NpmApiError::with_reason(
-                "not_found",
-                &format!("tarball {} not found", tarball),
-            ))
-        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => HttpResponse::NotFound().json(
+            NpmApiError::with_reason("not_found", &format!("tarball {} not found", tarball)),
+        ),
         Err(e) => {
             error!("Failed to read tarball {:?}: {}", tarball_path, e);
-            HttpResponse::InternalServerError()
-                .json(NpmApiError::new("failed to read tarball"))
+            HttpResponse::InternalServerError().json(NpmApiError::new("failed to read tarball"))
         }
     }
 }
 
 /// GET /npm/-/all - List all packages (for compatibility)
-pub async fn list_packages(
-    req: HttpRequest,
-    state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn list_packages(req: HttpRequest, state: web::Data<AppState>) -> impl Responder {
     if !validate_api_key(&req, &state) {
         return HttpResponse::Unauthorized().json(NpmApiError::new("authentication required"));
     }

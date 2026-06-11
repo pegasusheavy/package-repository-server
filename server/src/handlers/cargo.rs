@@ -5,12 +5,12 @@ use tokio::fs;
 use tokio::io::AsyncWriteExt;
 use tracing::{error, info, warn};
 
-use crate::AppState;
 use crate::security::{
-    log_malicious_upload, scan_package_content, validate_package_name, validate_version,
-    validate_path_safe, MAX_PACKAGE_SIZE, MAX_METADATA_SIZE,
+    log_malicious_upload, scan_package_content, validate_package_name, validate_path_safe,
+    validate_version, MAX_METADATA_SIZE, MAX_PACKAGE_SIZE,
 };
 use crate::utils::cargo_index_path_optimized as get_index_path;
+use crate::AppState;
 
 use super::auth::{get_client_ip, validate_api_key};
 use super::registry_types::{
@@ -71,8 +71,7 @@ pub async fn crate_metadata(
         }
         Err(e) => {
             error!("Failed to read index file {:?}: {}", file_path, e);
-            HttpResponse::InternalServerError()
-                .json(CargoApiError::new("failed to read index"))
+            HttpResponse::InternalServerError().json(CargoApiError::new("failed to read index"))
         }
     }
 }
@@ -93,9 +92,12 @@ pub async fn publish_crate(
 
     // ========== SECURITY: Check total payload size ==========
     if body.len() > MAX_PACKAGE_SIZE + MAX_METADATA_SIZE {
-        warn!("Rejected oversized payload: {} bytes from {:?}", body.len(), client_ip);
-        return HttpResponse::PayloadTooLarge()
-            .json(CargoApiError::new("payload too large"));
+        warn!(
+            "Rejected oversized payload: {} bytes from {:?}",
+            body.len(),
+            client_ip
+        );
+        return HttpResponse::PayloadTooLarge().json(CargoApiError::new("payload too large"));
     }
 
     if body.len() < 8 {
@@ -107,9 +109,11 @@ pub async fn publish_crate(
 
     // ========== SECURITY: Check metadata size limit ==========
     if json_len > MAX_METADATA_SIZE {
-        warn!("Rejected oversized metadata: {} bytes from {:?}", json_len, client_ip);
-        return HttpResponse::BadRequest()
-            .json(CargoApiError::new("metadata too large"));
+        warn!(
+            "Rejected oversized metadata: {} bytes from {:?}",
+            json_len, client_ip
+        );
+        return HttpResponse::BadRequest().json(CargoApiError::new("metadata too large"));
     }
 
     if body.len() < 4 + json_len + 4 {
@@ -122,14 +126,15 @@ pub async fn publish_crate(
 
     // ========== SECURITY: Check crate size limit ==========
     if crate_len > MAX_PACKAGE_SIZE {
-        warn!("Rejected oversized crate: {} bytes from {:?}", crate_len, client_ip);
-        return HttpResponse::PayloadTooLarge()
-            .json(CargoApiError::new("crate file too large"));
+        warn!(
+            "Rejected oversized crate: {} bytes from {:?}",
+            crate_len, client_ip
+        );
+        return HttpResponse::PayloadTooLarge().json(CargoApiError::new("crate file too large"));
     }
 
     if body.len() < 8 + json_len + crate_len {
-        return HttpResponse::BadRequest()
-            .json(CargoApiError::new("incomplete crate data"));
+        return HttpResponse::BadRequest().json(CargoApiError::new("incomplete crate data"));
     }
 
     let crate_data = &body[8 + json_len..8 + json_len + crate_len];
@@ -148,34 +153,59 @@ pub async fn publish_crate(
     let name = metadata.name.to_lowercase();
     let name_check = validate_package_name(&name, "cargo");
     if !name_check.passed {
-        warn!("Rejected invalid crate name '{}': {:?} from {:?}", name, name_check.errors, client_ip);
+        warn!(
+            "Rejected invalid crate name '{}': {:?} from {:?}",
+            name, name_check.errors, client_ip
+        );
         log_malicious_upload(&name, &name_check.errors.join(", "), client_ip.as_deref());
-        return HttpResponse::BadRequest()
-            .json(CargoApiError::new(&format!("invalid crate name: {}", name_check.errors.join(", "))));
+        return HttpResponse::BadRequest().json(CargoApiError::new(&format!(
+            "invalid crate name: {}",
+            name_check.errors.join(", ")
+        )));
     }
 
     // ========== SECURITY: Validate version ==========
     let version_check = validate_version(&metadata.vers);
     if !version_check.passed {
-        warn!("Rejected invalid version '{}': {:?} from {:?}", metadata.vers, version_check.errors, client_ip);
-        log_malicious_upload(&name, &format!("invalid version: {}", version_check.errors.join(", ")), client_ip.as_deref());
-        return HttpResponse::BadRequest()
-            .json(CargoApiError::new(&format!("invalid version: {}", version_check.errors.join(", "))));
+        warn!(
+            "Rejected invalid version '{}': {:?} from {:?}",
+            metadata.vers, version_check.errors, client_ip
+        );
+        log_malicious_upload(
+            &name,
+            &format!("invalid version: {}", version_check.errors.join(", ")),
+            client_ip.as_deref(),
+        );
+        return HttpResponse::BadRequest().json(CargoApiError::new(&format!(
+            "invalid version: {}",
+            version_check.errors.join(", ")
+        )));
     }
 
     // ========== SECURITY: Scan package content for malicious patterns ==========
     let security_scan = scan_package_content(crate_data, "cargo");
     if !security_scan.passed {
-        error!("SECURITY: Rejected malicious crate '{}' v{}: {:?} from {:?}",
-            name, metadata.vers, security_scan.errors, client_ip);
-        log_malicious_upload(&name, &security_scan.errors.join(", "), client_ip.as_deref());
-        return HttpResponse::BadRequest()
-            .json(CargoApiError::new(&format!("package rejected: {}", security_scan.errors.join(", "))));
+        error!(
+            "SECURITY: Rejected malicious crate '{}' v{}: {:?} from {:?}",
+            name, metadata.vers, security_scan.errors, client_ip
+        );
+        log_malicious_upload(
+            &name,
+            &security_scan.errors.join(", "),
+            client_ip.as_deref(),
+        );
+        return HttpResponse::BadRequest().json(CargoApiError::new(&format!(
+            "package rejected: {}",
+            security_scan.errors.join(", ")
+        )));
     }
 
     // Log any warnings from security scan
     for warning in &security_scan.warnings {
-        warn!("Security warning for crate '{}' v{}: {}", name, metadata.vers, warning);
+        warn!(
+            "Security warning for crate '{}' v{}: {}",
+            name, metadata.vers, warning
+        );
     }
 
     // Calculate SHA256 checksum
@@ -192,11 +222,16 @@ pub async fn publish_crate(
     // ========== SECURITY: Validate paths are within allowed directory ==========
     let path_check = validate_path_safe(&crate_relative_path, &cargo_dir);
     if !path_check.passed {
-        error!("SECURITY: Path traversal attempt detected for crate '{}': {:?} from {:?}",
-            name, path_check.errors, client_ip);
-        log_malicious_upload(&name, &format!("path traversal: {}", path_check.errors.join(", ")), client_ip.as_deref());
-        return HttpResponse::BadRequest()
-            .json(CargoApiError::new("invalid package path"));
+        error!(
+            "SECURITY: Path traversal attempt detected for crate '{}': {:?} from {:?}",
+            name, path_check.errors, client_ip
+        );
+        log_malicious_upload(
+            &name,
+            &format!("path traversal: {}", path_check.errors.join(", ")),
+            client_ip.as_deref(),
+        );
+        return HttpResponse::BadRequest().json(CargoApiError::new("invalid package path"));
     }
 
     // Create directories
@@ -264,9 +299,7 @@ pub async fn publish_crate(
 
     info!(
         "Published crate {} version {} ({} bytes)",
-        name,
-        metadata.vers,
-        crate_len
+        name, metadata.vers, crate_len
     );
 
     HttpResponse::Ok().json(CargoPublishResponse { warnings: None })
@@ -302,8 +335,7 @@ pub async fn download_crate(
         }
         Err(e) => {
             error!("Failed to read crate file {:?}: {}", crate_file, e);
-            HttpResponse::InternalServerError()
-                .json(CargoApiError::new("failed to read crate"))
+            HttpResponse::InternalServerError().json(CargoApiError::new("failed to read crate"))
         }
     }
 }
@@ -388,7 +420,9 @@ async fn set_yanked(data_dir: &str, name: &str, version: &str, yanked: bool) -> 
             found = true;
         }
 
-        lines.push(serde_json::to_string(&entry).map_err(|e| format!("failed to serialize: {}", e))?);
+        lines.push(
+            serde_json::to_string(&entry).map_err(|e| format!("failed to serialize: {}", e))?,
+        );
     }
 
     if !found {
@@ -405,10 +439,7 @@ async fn set_yanked(data_dir: &str, name: &str, version: &str, yanked: bool) -> 
 }
 
 /// GET /cargo/api/v1/crates - List all crates (for packages API compatibility)
-pub async fn list_crates(
-    req: HttpRequest,
-    state: web::Data<AppState>,
-) -> impl Responder {
+pub async fn list_crates(req: HttpRequest, state: web::Data<AppState>) -> impl Responder {
     if !validate_api_key(&req, &state) {
         return HttpResponse::Unauthorized().json(CargoApiError::new("valid API key required"));
     }
@@ -436,7 +467,9 @@ pub async fn list_crates(
 /// Recursively collect crate info from index directories
 fn collect_crates_from_dir(
     dir: PathBuf,
-) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Vec<serde_json::Value>, std::io::Error>> + Send>> {
+) -> std::pin::Pin<
+    Box<dyn std::future::Future<Output = Result<Vec<serde_json::Value>, std::io::Error>> + Send>,
+> {
     Box::pin(async move {
         let mut crates = Vec::new();
         let mut entries = fs::read_dir(&dir).await?;
@@ -450,7 +483,7 @@ fn collect_crates_from_dir(
             } else if file_type.is_file() {
                 // This is an index file - parse it
                 if let Ok(content) = fs::read_to_string(entry.path()).await {
-                    if let Some(last_line) = content.lines().filter(|l| !l.is_empty()).last() {
+                    if let Some(last_line) = content.lines().rfind(|l| !l.is_empty()) {
                         if let Ok(entry) = serde_json::from_str::<CargoIndexEntry>(last_line) {
                             crates.push(serde_json::json!({
                                 "name": entry.name,

@@ -99,9 +99,12 @@ add_package() {
     fi
 
     # Extract package info
-    local pkg_name=$(dpkg-deb -f "$deb_file" Package)
-    local pkg_arch=$(dpkg-deb -f "$deb_file" Architecture)
-    local pkg_version=$(dpkg-deb -f "$deb_file" Version)
+    local pkg_name
+    pkg_name=$(dpkg-deb -f "$deb_file" Package)
+    local pkg_arch
+    pkg_arch=$(dpkg-deb -f "$deb_file" Architecture)
+    local pkg_version
+    pkg_version=$(dpkg-deb -f "$deb_file" Version)
 
     echo "Adding package: $pkg_name ($pkg_version) for $pkg_arch"
 

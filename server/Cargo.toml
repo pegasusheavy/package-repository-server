@@ -30,7 +30,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 thiserror = "1"
 anyhow = "1"
 config = "0.14"
-aws-sdk-s3 = "1"
+aws-sdk-s3 = { version = "1", default-features = false, features = ["sigv4a", "default-https-client", "rt-tokio"] }
 aws-config = "1"
 bytes = "1"
 mime_guess = "2"
@@ -42,8 +42,8 @@ hex = "0.4"
 zip = "2"
 flate2 = "1"
 # OAuth2/OIDC and JWT dependencies
-oauth2 = "4"
-openidconnect = "3"
+oauth2 = { version = "4", default-features = false, features = ["reqwest", "native-tls"] }
+openidconnect = { version = "3", default-features = false, features = ["reqwest", "native-tls"] }
 jsonwebtoken = "9"
 reqwest = { version = "0.11", features = ["json"] }
 url = "2"
