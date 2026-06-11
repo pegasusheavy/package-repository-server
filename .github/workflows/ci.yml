@@ -211,7 +211,7 @@ jobs:
 
       - name: Run E2E tests
         run: |
-          docker-compose -f tests/e2e/docker-compose.test.yml up \
+          docker compose -f tests/e2e/docker-compose.test.yml up \
             --build \
             --abort-on-container-exit \
             --exit-code-from test-runner
@@ -219,4 +219,4 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          docker-compose -f tests/e2e/docker-compose.test.yml down -v
+          docker compose -f tests/e2e/docker-compose.test.yml down -v
