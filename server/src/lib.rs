@@ -2,17 +2,16 @@ pub mod handlers;
 pub mod middleware;
 pub mod processor;
 pub mod security;
+pub mod sso_config;
+pub mod sso_handlers;
+pub mod sso_session;
+pub mod sso_state;
 pub mod storage;
 pub mod utils;
-pub mod sso_config;
-pub mod sso_session;
-pub mod sso_handlers;
-pub mod sso_state;
 
+use sso_handlers::SsoState;
 use std::sync::Arc;
 use storage::Storage;
-use sso_config::SsoConfig;
-use sso_handlers::SsoState;
 
 pub struct AppState {
     pub storage: Arc<Storage>,

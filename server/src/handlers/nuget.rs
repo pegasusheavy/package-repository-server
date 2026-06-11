@@ -8,13 +8,13 @@ use tokio::fs;
 use tracing::{error, info};
 use zip::ZipArchive;
 
-use crate::AppState;
 use crate::utils::{extract_xml_value_optimized, version_compare_optimized};
+use crate::AppState;
 
 use super::auth::validate_api_key;
 
-/// NuGet V3 API Implementation
-/// https://docs.microsoft.com/en-us/nuget/api/overview
+// NuGet V3 API Implementation
+// https://docs.microsoft.com/en-us/nuget/api/overview
 
 fn get_nuget_path(data_dir: &str) -> PathBuf {
     PathBuf::from(data_dir).join("nuget")
@@ -443,7 +443,10 @@ pub async fn search(
                             versions.push(SearchVersion {
                                 version: ver.clone(),
                                 downloads: 0,
-                                id: format!("{}/v3/registration/{}/{}.json", base_url, package_id, ver),
+                                id: format!(
+                                    "{}/v3/registration/{}/{}.json",
+                                    base_url, package_id, ver
+                                ),
                             });
                         }
                     }
@@ -588,7 +591,10 @@ pub async fn push_package(
     // Parse package ID and version from nuspec
     let (package_id, version) = match parse_nuspec_id_version(&nuspec) {
         Some((id, ver)) => (id.to_lowercase(), ver),
-        None => return HttpResponse::BadRequest().body("Could not parse package ID/version from .nuspec"),
+        None => {
+            return HttpResponse::BadRequest()
+                .body("Could not parse package ID/version from .nuspec")
+        }
     };
 
     // Create package directory

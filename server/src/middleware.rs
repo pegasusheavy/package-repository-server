@@ -95,7 +95,7 @@ where
             headers.insert(
                 HeaderName::from_static("content-security-policy"),
                 HeaderValue::from_static(
-                    "default-src 'none'; frame-ancestors 'none'; form-action 'none'"
+                    "default-src 'none'; frame-ancestors 'none'; form-action 'none'",
                 ),
             );
 

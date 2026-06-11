@@ -1,8 +1,8 @@
 //! Utility functions for package repository operations.
 //! These are extracted for benchmarking and reuse.
 
-use sha2::{Digest, Sha256};
 use sha1::Sha1;
+use sha2::{Digest, Sha256};
 
 /// Calculate the Cargo index path for a crate name per Cargo spec
 /// - 1 char: 1/{name}
@@ -64,8 +64,8 @@ pub fn cargo_index_path_optimized(crate_name: &str) -> String {
 /// Compare version strings (semantic versioning style)
 #[inline]
 pub fn version_compare(a: &str, b: &str) -> std::cmp::Ordering {
-    let a_parts: Vec<&str> = a.split(|c| c == '.' || c == '-').collect();
-    let b_parts: Vec<&str> = b.split(|c| c == '.' || c == '-').collect();
+    let a_parts: Vec<&str> = a.split(['.', '-']).collect();
+    let b_parts: Vec<&str> = b.split(['.', '-']).collect();
 
     for (a_part, b_part) in a_parts.iter().zip(b_parts.iter()) {
         match (a_part.parse::<u64>(), b_part.parse::<u64>()) {
@@ -88,8 +88,8 @@ pub fn version_compare(a: &str, b: &str) -> std::cmp::Ordering {
 /// Optimized version comparison using iterators
 #[inline]
 pub fn version_compare_optimized(a: &str, b: &str) -> std::cmp::Ordering {
-    let mut a_iter = a.split(|c: char| c == '.' || c == '-');
-    let mut b_iter = b.split(|c: char| c == '.' || c == '-');
+    let mut a_iter = a.split(['.', '-']);
+    let mut b_iter = b.split(['.', '-']);
 
     loop {
         match (a_iter.next(), b_iter.next()) {
@@ -158,13 +158,19 @@ pub fn sha1_hex(data: &[u8]) -> String {
 /// Validate crate name (lowercase alphanumeric, hyphens, underscores)
 #[inline]
 pub fn is_valid_crate_name(name: &str) -> bool {
-    !name.is_empty() && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+    !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
 }
 
 /// Optimized crate name validation using byte iteration
 #[inline]
 pub fn is_valid_crate_name_optimized(name: &str) -> bool {
-    !name.is_empty() && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+    !name.is_empty()
+        && name
+            .bytes()
+            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
 }
 
 /// Normalize PyPI package name (PEP 503)
@@ -172,7 +178,13 @@ pub fn is_valid_crate_name_optimized(name: &str) -> bool {
 pub fn normalize_pypi_name(name: &str) -> String {
     name.to_lowercase()
         .chars()
-        .map(|c| if c == '-' || c == '_' || c == '.' { '-' } else { c })
+        .map(|c| {
+            if c == '-' || c == '_' || c == '.' {
+                '-'
+            } else {
+                c
+            }
+        })
         .collect()
 }
 

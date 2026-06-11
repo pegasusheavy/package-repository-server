@@ -2,20 +2,20 @@
 //!
 //! Implements OAuth2/OIDC authentication flows for multiple providers.
 
+use crate::sso_config::{SsoConfig, SsoProviderConfig, SsoProviderType};
+use crate::sso_session::{JwtManager, SessionClaims, UserProfile};
+use crate::sso_state::{OAuthStateData, StatelessStateManager};
 use actix_web::{web, HttpRequest, HttpResponse, Result};
+use oauth2::basic::BasicClient;
+use oauth2::reqwest::async_http_client;
 use oauth2::{
     AuthorizationCode, ClientId, ClientSecret, CsrfToken, PkceCodeChallenge, PkceCodeVerifier,
     RedirectUrl, Scope, TokenResponse,
 };
-use oauth2::basic::{BasicClient, BasicTokenResponse};
-use oauth2::reqwest::async_http_client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
-use crate::sso_config::{SsoConfig, SsoProviderConfig, SsoProviderType};
-use crate::sso_session::{JwtManager, SessionClaims, UserProfile};
-use crate::sso_state::{OAuthStateData, StatelessStateManager};
 
 /// Application state with SSO configuration
 pub struct SsoState {
@@ -77,7 +77,9 @@ pub async fn list_providers(state: web::Data<Arc<SsoState>>) -> Result<HttpRespo
         })));
     }
 
-    let providers: Vec<ProviderInfo> = state.config.enabled_providers()
+    let providers: Vec<ProviderInfo> = state
+        .config
+        .enabled_providers()
         .iter()
         .map(|p| ProviderInfo {
             id: p.provider_type.as_str().to_string(),
@@ -125,14 +127,14 @@ pub async fn initiate_login(
     // Generate PKCE challenge for extra security
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
     let csrf_token = CsrfToken::new_random();
-    
+
     // Create stateless OAuth state data
     let state_data = OAuthStateData::new(
         pkce_verifier.secret().clone(),
         csrf_token.secret().clone(),
         provider_id.to_string(),
     );
-    
+
     // Encode state into encrypted token (stateless - no server-side storage needed)
     let encoded_state = match state.state_manager.encode(&state_data) {
         Ok(s) => s,
@@ -143,21 +145,21 @@ pub async fn initiate_login(
             })));
         }
     };
-    
+
     // Build authorization URL with our encoded state
     let mut auth_request = client
         .authorize_url(|| CsrfToken::new(encoded_state.clone()))
         .set_pkce_challenge(pkce_challenge);
-    
+
     // Add scopes
     for scope in provider.get_default_scopes() {
         auth_request = auth_request.add_scope(Scope::new(scope));
     }
-    
+
     let (auth_url, _) = auth_request.url();
-    
+
     debug!("Generated authorization URL with stateless state");
-    
+
     Ok(HttpResponse::Ok().json(AuthorizationRequest {
         authorization_url: auth_url.to_string(),
         state: encoded_state,
@@ -169,14 +171,14 @@ pub async fn handle_callback(
     provider_id: web::Path<String>,
     query: web::Query<CallbackQuery>,
     state: web::Data<Arc<SsoState>>,
-    req: HttpRequest,
+    _req: HttpRequest,
 ) -> Result<HttpResponse> {
     if !state.config.enabled {
         return Ok(HttpResponse::ServiceUnavailable().json(serde_json::json!({
             "error": "SSO is not enabled",
         })));
     }
-    
+
     // Decode and validate stateless OAuth state
     let state_data = match state.state_manager.decode(&query.state) {
         Ok(d) => d,
@@ -188,7 +190,7 @@ pub async fn handle_callback(
             })));
         }
     };
-    
+
     // Verify provider matches
     if state_data.provider != provider_id.as_str() {
         error!("Provider mismatch in OAuth state");
@@ -196,7 +198,7 @@ pub async fn handle_callback(
             "error": "Provider mismatch",
         })));
     }
-    
+
     let provider = match state.config.get_provider(&provider_id) {
         Some(p) => p,
         None => {
@@ -205,9 +207,9 @@ pub async fn handle_callback(
             })));
         }
     };
-    
+
     info!("Handling OAuth callback for provider: {}", provider.name);
-    
+
     // Build OAuth2 client
     let client = match build_oauth_client(provider) {
         Ok(c) => c,
@@ -218,11 +220,11 @@ pub async fn handle_callback(
             })));
         }
     };
-    
+
     // Exchange authorization code for access token with PKCE verifier
     let code = AuthorizationCode::new(query.code.clone());
     let pkce_verifier = PkceCodeVerifier::new(state_data.pkce_verifier);
-    
+
     let token_result = client
         .exchange_code(code)
         .set_pkce_verifier(pkce_verifier)
@@ -367,7 +369,7 @@ pub async fn validate_session(
 }
 
 /// POST /auth/logout - Logout (invalidate session)
-pub async fn logout(req: HttpRequest) -> Result<HttpResponse> {
+pub async fn logout(_req: HttpRequest) -> Result<HttpResponse> {
     // In a stateless JWT system, logout is client-side (delete token)
     // For server-side logout, you would need a token blacklist
 
@@ -384,13 +386,8 @@ fn build_oauth_client(provider: &SsoProviderConfig) -> anyhow::Result<BasicClien
     let auth_url = oauth2::AuthUrl::new(provider.get_auth_url())?;
     let token_url = oauth2::TokenUrl::new(provider.get_token_url())?;
 
-    let client = BasicClient::new(
-        client_id,
-        Some(client_secret),
-        auth_url,
-        Some(token_url),
-    )
-    .set_redirect_uri(RedirectUrl::new(provider.redirect_uri.clone())?);
+    let client = BasicClient::new(client_id, Some(client_secret), auth_url, Some(token_url))
+        .set_redirect_uri(RedirectUrl::new(provider.redirect_uri.clone())?);
 
     Ok(client)
 }
@@ -431,23 +428,25 @@ async fn fetch_user_profile(
 /// Parse user profile from provider-specific format
 fn parse_user_profile(provider_type: &SsoProviderType, data: Value) -> anyhow::Result<UserProfile> {
     match provider_type {
-        SsoProviderType::Google => {
-            Ok(UserProfile {
-                id: data["sub"].as_str().unwrap_or_default().to_string(),
-                email: data["email"].as_str().ok_or_else(|| anyhow::anyhow!("Missing email"))?.to_string(),
-                email_verified: data["email_verified"].as_bool().unwrap_or(false),
-                name: data["name"].as_str().map(|s| s.to_string()),
-                given_name: data["given_name"].as_str().map(|s| s.to_string()),
-                family_name: data["family_name"].as_str().map(|s| s.to_string()),
-                picture: data["picture"].as_str().map(|s| s.to_string()),
-                locale: data["locale"].as_str().map(|s| s.to_string()),
-                provider: "google".to_string(),
-                raw_data: data,
-            })
-        }
+        SsoProviderType::Google => Ok(UserProfile {
+            id: data["sub"].as_str().unwrap_or_default().to_string(),
+            email: data["email"]
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("Missing email"))?
+                .to_string(),
+            email_verified: data["email_verified"].as_bool().unwrap_or(false),
+            name: data["name"].as_str().map(|s| s.to_string()),
+            given_name: data["given_name"].as_str().map(|s| s.to_string()),
+            family_name: data["family_name"].as_str().map(|s| s.to_string()),
+            picture: data["picture"].as_str().map(|s| s.to_string()),
+            locale: data["locale"].as_str().map(|s| s.to_string()),
+            provider: "google".to_string(),
+            raw_data: data,
+        }),
         SsoProviderType::GitHub => {
             // GitHub requires separate call for email
-            let email = data["email"].as_str()
+            let email = data["email"]
+                .as_str()
                 .or_else(|| data["login"].as_str())
                 .ok_or_else(|| anyhow::anyhow!("Missing email/login"))?
                 .to_string();
@@ -465,24 +464,26 @@ fn parse_user_profile(provider_type: &SsoProviderType, data: Value) -> anyhow::R
                 raw_data: data,
             })
         }
-        SsoProviderType::GitLab => {
-            Ok(UserProfile {
-                id: data["id"].to_string(),
-                email: data["email"].as_str().ok_or_else(|| anyhow::anyhow!("Missing email"))?.to_string(),
-                email_verified: data["confirmed_at"].is_string(),
-                name: data["name"].as_str().map(|s| s.to_string()),
-                given_name: None,
-                family_name: None,
-                picture: data["avatar_url"].as_str().map(|s| s.to_string()),
-                locale: None,
-                provider: "gitlab".to_string(),
-                raw_data: data,
-            })
-        }
+        SsoProviderType::GitLab => Ok(UserProfile {
+            id: data["id"].to_string(),
+            email: data["email"]
+                .as_str()
+                .ok_or_else(|| anyhow::anyhow!("Missing email"))?
+                .to_string(),
+            email_verified: data["confirmed_at"].is_string(),
+            name: data["name"].as_str().map(|s| s.to_string()),
+            given_name: None,
+            family_name: None,
+            picture: data["avatar_url"].as_str().map(|s| s.to_string()),
+            locale: None,
+            provider: "gitlab".to_string(),
+            raw_data: data,
+        }),
         SsoProviderType::Microsoft | SsoProviderType::Azure => {
             Ok(UserProfile {
                 id: data["id"].as_str().unwrap_or_default().to_string(),
-                email: data["mail"].as_str()
+                email: data["mail"]
+                    .as_str()
                     .or_else(|| data["userPrincipalName"].as_str())
                     .ok_or_else(|| anyhow::anyhow!("Missing email"))?
                     .to_string(),
@@ -500,7 +501,10 @@ fn parse_user_profile(provider_type: &SsoProviderType, data: Value) -> anyhow::R
             // Generic OIDC parsing
             Ok(UserProfile {
                 id: data["sub"].as_str().unwrap_or_default().to_string(),
-                email: data["email"].as_str().ok_or_else(|| anyhow::anyhow!("Missing email"))?.to_string(),
+                email: data["email"]
+                    .as_str()
+                    .ok_or_else(|| anyhow::anyhow!("Missing email"))?
+                    .to_string(),
                 email_verified: data["email_verified"].as_bool().unwrap_or(false),
                 name: data["name"].as_str().map(|s| s.to_string()),
                 given_name: data["given_name"].as_str().map(|s| s.to_string()),
@@ -522,6 +526,6 @@ pub fn configure_routes(cfg: &mut web::ServiceConfig) {
             .route("/login/{provider}", web::get().to(initiate_login))
             .route("/callback/{provider}", web::get().to(handle_callback))
             .route("/validate", web::get().to(validate_session))
-            .route("/logout", web::post().to(logout))
+            .route("/logout", web::post().to(logout)),
     );
 }

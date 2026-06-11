@@ -218,8 +218,8 @@ impl Storage {
                 .await;
 
             if let Some(credentials_provider) = aws_config.credentials_provider() {
-                s3_config_builder = s3_config_builder
-                    .credentials_provider(credentials_provider.clone());
+                s3_config_builder =
+                    s3_config_builder.credentials_provider(credentials_provider.clone());
             }
         }
 
@@ -238,7 +238,7 @@ impl Storage {
     /// Prefer using new_s3_with_config() for full control
     pub async fn new_s3(endpoint: Option<String>, bucket: String, region: String) -> Self {
         // Detect if we need path-style based on endpoint
-        let force_path_style = endpoint.as_ref().map_or(false, |ep| {
+        let force_path_style = endpoint.as_ref().is_some_and(|ep| {
             // Common indicators that path-style is needed
             ep.contains("localhost")
                 || ep.contains("127.0.0.1")
@@ -281,7 +281,7 @@ impl Storage {
             Ok(val) => val.eq_ignore_ascii_case("true") || val == "1",
             Err(_) => {
                 // Auto-detect based on endpoint
-                endpoint.as_ref().map_or(false, |ep| {
+                endpoint.as_ref().is_some_and(|ep| {
                     ep.contains("localhost")
                         || ep.contains("127.0.0.1")
                         || ep.contains("minio")
@@ -451,11 +451,7 @@ impl Storage {
     }
 }
 
-fn collect_files(
-    dir: &Path,
-    base: &Path,
-    files: &mut Vec<String>,
-) -> Result<(), std::io::Error> {
+fn collect_files(dir: &Path, base: &Path, files: &mut Vec<String>) -> Result<(), std::io::Error> {
     for entry in std::fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
@@ -542,7 +538,10 @@ mod tests {
         // Create some files
         storage.write("packages/file1.deb", b"deb1").await.unwrap();
         storage.write("packages/file2.deb", b"deb2").await.unwrap();
-        storage.write("packages/subdir/file3.deb", b"deb3").await.unwrap();
+        storage
+            .write("packages/subdir/file3.deb", b"deb3")
+            .await
+            .unwrap();
 
         let files = storage.list("packages").await.unwrap();
         assert_eq!(files.len(), 3);

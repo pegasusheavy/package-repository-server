@@ -79,9 +79,8 @@ pub fn extract_api_key(req: &HttpRequest) -> Option<String> {
 
     // Check query parameter (less secure, but some tools require it)
     if let Some(key) = req.query_string().split('&').find_map(|pair| {
-        let mut parts = pair.splitn(2, '=');
-        let name = parts.next()?;
-        let value = parts.next()?;
+        let (name, value) = pair.split_once('=')?;
+
         if name == "api_key" || name == "token" {
             Some(value.to_string())
         } else {

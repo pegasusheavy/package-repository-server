@@ -66,7 +66,9 @@ pub async fn list_packages(
 
     // List packages from all repository types
     for pkg_type in &["deb", "rpm", "arch", "alpine", "cargo", "npm"] {
-        if let Ok(packages) = list_packages_for_type(&state.data_dir, pkg_type, query.arch.as_deref()).await {
+        if let Ok(packages) =
+            list_packages_for_type(&state.data_dir, pkg_type, query.arch.as_deref()).await
+        {
             all_packages.extend(packages);
         }
     }
@@ -132,16 +134,8 @@ async fn list_packages_for_type(
             ".apk",
             vec!["x86_64", "aarch64", "noarch"],
         ),
-        "cargo" => (
-            format!("{}/cargo/crates", data_dir),
-            ".crate",
-            vec!["any"],
-        ),
-        "npm" => (
-            format!("{}/npm/packages", data_dir),
-            ".tgz",
-            vec!["any"],
-        ),
+        "cargo" => (format!("{}/cargo/crates", data_dir), ".crate", vec!["any"]),
+        "npm" => (format!("{}/npm/packages", data_dir), ".tgz", vec!["any"]),
         _ => return Err(format!("Unknown package type: {}", pkg_type)),
     };
 
@@ -172,7 +166,8 @@ async fn list_packages_for_type(
 
                         // Apply architecture filter
                         if let Some(filter) = arch_filter {
-                            if arch != filter && arch != "all" && arch != "any" && arch != "noarch" {
+                            if arch != filter && arch != "all" && arch != "any" && arch != "noarch"
+                            {
                                 continue;
                             }
                         }
@@ -194,8 +189,7 @@ async fn list_packages_for_type(
         Ok(())
     }
 
-    walk_dir(base, extension, pkg_type, &mut packages, arch_filter)
-        .map_err(|e| e.to_string())?;
+    walk_dir(base, extension, pkg_type, &mut packages, arch_filter).map_err(|e| e.to_string())?;
 
     Ok(packages)
 }
@@ -212,7 +206,11 @@ fn parse_package_filename(filename: &str, pkg_type: &str) -> (String, String, St
                     parts[2].to_string(),
                 )
             } else {
-                (filename.to_string(), "unknown".to_string(), "unknown".to_string())
+                (
+                    filename.to_string(),
+                    "unknown".to_string(),
+                    "unknown".to_string(),
+                )
             }
         }
         "rpm" => {
@@ -231,10 +229,18 @@ fn parse_package_filename(filename: &str, pkg_type: &str) -> (String, String, St
                         arch.to_string(),
                     )
                 } else {
-                    (name_version.to_string(), "unknown".to_string(), arch.to_string())
+                    (
+                        name_version.to_string(),
+                        "unknown".to_string(),
+                        arch.to_string(),
+                    )
                 }
             } else {
-                (filename.to_string(), "unknown".to_string(), "unknown".to_string())
+                (
+                    filename.to_string(),
+                    "unknown".to_string(),
+                    "unknown".to_string(),
+                )
             }
         }
         "arch" => {
@@ -251,7 +257,11 @@ fn parse_package_filename(filename: &str, pkg_type: &str) -> (String, String, St
                     parts[0].to_string(),
                 )
             } else {
-                (filename.to_string(), "unknown".to_string(), "unknown".to_string())
+                (
+                    filename.to_string(),
+                    "unknown".to_string(),
+                    "unknown".to_string(),
+                )
             }
         }
         "alpine" => {
@@ -265,7 +275,11 @@ fn parse_package_filename(filename: &str, pkg_type: &str) -> (String, String, St
                     "unknown".to_string(), // Architecture needs to be read from PKGINFO
                 )
             } else {
-                (filename.to_string(), "unknown".to_string(), "unknown".to_string())
+                (
+                    filename.to_string(),
+                    "unknown".to_string(),
+                    "unknown".to_string(),
+                )
             }
         }
         "cargo" => {
@@ -276,7 +290,11 @@ fn parse_package_filename(filename: &str, pkg_type: &str) -> (String, String, St
                 let version = &without_ext[dash_pos + 1..];
                 (name.to_string(), version.to_string(), "any".to_string())
             } else {
-                (without_ext.to_string(), "unknown".to_string(), "any".to_string())
+                (
+                    without_ext.to_string(),
+                    "unknown".to_string(),
+                    "any".to_string(),
+                )
             }
         }
         "npm" => {
@@ -287,10 +305,18 @@ fn parse_package_filename(filename: &str, pkg_type: &str) -> (String, String, St
                 let version = &without_ext[dash_pos + 1..];
                 (name.to_string(), version.to_string(), "any".to_string())
             } else {
-                (without_ext.to_string(), "unknown".to_string(), "any".to_string())
+                (
+                    without_ext.to_string(),
+                    "unknown".to_string(),
+                    "any".to_string(),
+                )
             }
         }
-        _ => (filename.to_string(), "unknown".to_string(), "unknown".to_string()),
+        _ => (
+            filename.to_string(),
+            "unknown".to_string(),
+            "unknown".to_string(),
+        ),
     }
 }
 
@@ -419,7 +445,8 @@ mod tests {
 
     #[test]
     fn test_parse_deb_filename_with_release() {
-        let (name, version, arch) = parse_package_filename("nginx_1.24.0-1ubuntu1_arm64.deb", "deb");
+        let (name, version, arch) =
+            parse_package_filename("nginx_1.24.0-1ubuntu1_arm64.deb", "deb");
         assert_eq!(name, "nginx");
         assert_eq!(version, "1.24.0-1ubuntu1");
         assert_eq!(arch, "arm64");
@@ -443,7 +470,8 @@ mod tests {
 
     #[test]
     fn test_parse_rpm_filename_noarch() {
-        let (name, version, arch) = parse_package_filename("python3-setuptools-50.3.2-4.noarch.rpm", "rpm");
+        let (name, version, arch) =
+            parse_package_filename("python3-setuptools-50.3.2-4.noarch.rpm", "rpm");
         assert_eq!(name, "python3-setuptools");
         assert_eq!(version, "50.3.2-4");
         assert_eq!(arch, "noarch");
@@ -451,7 +479,8 @@ mod tests {
 
     #[test]
     fn test_parse_arch_filename_zst() {
-        let (name, version, arch) = parse_package_filename("mypackage-1.0.0-1-x86_64.pkg.tar.zst", "arch");
+        let (name, version, arch) =
+            parse_package_filename("mypackage-1.0.0-1-x86_64.pkg.tar.zst", "arch");
         assert_eq!(name, "mypackage");
         assert_eq!(version, "1.0.0-1");
         assert_eq!(arch, "x86_64");
@@ -459,7 +488,8 @@ mod tests {
 
     #[test]
     fn test_parse_arch_filename_xz() {
-        let (name, version, arch) = parse_package_filename("linux-headers-6.1.0-1-aarch64.pkg.tar.xz", "arch");
+        let (name, version, arch) =
+            parse_package_filename("linux-headers-6.1.0-1-aarch64.pkg.tar.xz", "arch");
         assert_eq!(name, "linux-headers");
         assert_eq!(version, "6.1.0-1");
         assert_eq!(arch, "aarch64");
@@ -467,7 +497,8 @@ mod tests {
 
     #[test]
     fn test_parse_arch_filename_any() {
-        let (name, version, arch) = parse_package_filename("bash-completion-2.11-1-any.pkg.tar.zst", "arch");
+        let (name, version, arch) =
+            parse_package_filename("bash-completion-2.11-1-any.pkg.tar.zst", "arch");
         assert_eq!(name, "bash-completion");
         assert_eq!(version, "2.11-1");
         assert_eq!(arch, "any");

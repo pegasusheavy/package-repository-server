@@ -87,7 +87,8 @@ pub async fn upload_package(
     let mut temp_file: Option<PathBuf> = None;
     let mut original_filename: Option<String> = None;
 
-    while let Some(item) = payload.next().await {
+    // Only process the first file in the multipart payload
+    if let Some(item) = payload.next().await {
         let mut field = match item {
             Ok(f) => f,
             Err(e) => {
@@ -103,13 +104,14 @@ pub async fn upload_package(
         let content_disposition = field.content_disposition();
         let filename = content_disposition
             .get_filename()
-            .map(|f| sanitize_filename::sanitize(f))
+            .map(sanitize_filename::sanitize)
             .unwrap_or_else(|| format!("package-{}", Uuid::new_v4()));
 
         original_filename = Some(filename.clone());
 
         // Create temp file
-        let temp_path = PathBuf::from("/tmp").join(format!("upload-{}-{}", Uuid::new_v4(), filename));
+        let temp_path =
+            PathBuf::from("/tmp").join(format!("upload-{}-{}", Uuid::new_v4(), filename));
 
         let mut file = match std::fs::File::create(&temp_path) {
             Ok(f) => f,
@@ -147,7 +149,6 @@ pub async fn upload_package(
         }
 
         temp_file = Some(temp_path);
-        break; // Only process first file
     }
 
     let temp_path = match temp_file {
@@ -162,8 +163,7 @@ pub async fn upload_package(
 
     info!(
         "Processing {} package: {:?}",
-        pkg_type_str,
-        original_filename
+        pkg_type_str, original_filename
     );
 
     // Process the package
@@ -176,8 +176,14 @@ pub async fn upload_package(
             // These types use dedicated registry endpoints, not the generic upload
             let _ = tokio::fs::remove_file(&temp_path).await;
             return HttpResponse::BadRequest().json(ErrorResponse {
-                error: format!("{} packages must be published via their dedicated registry endpoints", pkg_type),
-                details: Some("Use /cargo/api/v1/crates/new for Cargo or PUT /npm/<package> for npm".to_string()),
+                error: format!(
+                    "{} packages must be published via their dedicated registry endpoints",
+                    pkg_type
+                ),
+                details: Some(
+                    "Use /cargo/api/v1/crates/new for Cargo or PUT /npm/<package> for npm"
+                        .to_string(),
+                ),
             });
         }
     };

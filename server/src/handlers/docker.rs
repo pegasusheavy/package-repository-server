@@ -11,7 +11,7 @@ use crate::AppState;
 
 use super::auth::validate_api_key;
 
-/// Docker Registry HTTP API V2
+// Docker Registry HTTP API V2
 
 const DOCKER_UPLOAD_UUID_HEADER: &str = "Docker-Upload-UUID";
 const DOCKER_CONTENT_DIGEST_HEADER: &str = "Docker-Content-Digest";
@@ -38,10 +38,17 @@ fn get_manifest_path(data_dir: &str, name: &str, reference: &str) -> PathBuf {
     let repo_path = get_registry_path(data_dir).join("repositories").join(name);
     if reference.starts_with("sha256:") {
         // Reference by digest
-        repo_path.join("_manifests").join("revisions").join(reference)
+        repo_path
+            .join("_manifests")
+            .join("revisions")
+            .join(reference)
     } else {
         // Reference by tag
-        repo_path.join("_manifests").join("tags").join(reference).join("current")
+        repo_path
+            .join("_manifests")
+            .join("tags")
+            .join(reference)
+            .join("current")
     }
 }
 
@@ -57,7 +64,10 @@ fn get_upload_path(data_dir: &str, name: &str, uuid: &str) -> PathBuf {
 pub async fn version_check(req: HttpRequest, state: web::Data<AppState>) -> impl Responder {
     if !validate_api_key(&req, &state) {
         return HttpResponse::Unauthorized()
-            .insert_header(("WWW-Authenticate", "Bearer realm=\"Docker Registry\",service=\"registry\""))
+            .insert_header((
+                "WWW-Authenticate",
+                "Bearer realm=\"Docker Registry\",service=\"registry\"",
+            ))
             .insert_header(("Docker-Distribution-API-Version", "registry/2.0"))
             .json(DockerError::new("UNAUTHORIZED", "authentication required"));
     }
@@ -88,14 +98,18 @@ pub async fn catalog(
     repositories.sort();
 
     let n = query.n.unwrap_or(100);
-    let start = query.last.as_ref()
+    let start = query
+        .last
+        .as_ref()
         .and_then(|last| repositories.iter().position(|r| r == last))
         .map(|pos| pos + 1)
         .unwrap_or(0);
 
     let repos: Vec<String> = repositories.into_iter().skip(start).take(n).collect();
 
-    HttpResponse::Ok().json(CatalogResponse { repositories: repos })
+    HttpResponse::Ok().json(CatalogResponse {
+        repositories: repos,
+    })
 }
 
 #[derive(Debug, Deserialize)]
@@ -270,13 +284,22 @@ pub async fn start_upload(
             .json(DockerError::new("BLOB_UPLOAD_UNKNOWN", "upload failed"));
     }
 
-    let host = req.headers().get("Host")
+    let host = req
+        .headers()
+        .get("Host")
         .and_then(|h| h.to_str().ok())
         .unwrap_or("localhost");
-    let scheme = if req.connection_info().scheme() == "https" { "https" } else { "http" };
+    let scheme = if req.connection_info().scheme() == "https" {
+        "https"
+    } else {
+        "http"
+    };
 
     HttpResponse::Accepted()
-        .insert_header(("Location", format!("{}://{}/v2/{}/blobs/uploads/{}", scheme, host, name, uuid)))
+        .insert_header((
+            "Location",
+            format!("{}://{}/v2/{}/blobs/uploads/{}", scheme, host, name, uuid),
+        ))
         .insert_header((DOCKER_UPLOAD_UUID_HEADER, uuid))
         .insert_header(("Range", "0-0"))
         .finish()
@@ -320,13 +343,22 @@ pub async fn patch_upload(
 
     let file_size = fs::metadata(&data_file).await.map(|m| m.len()).unwrap_or(0);
 
-    let host = req.headers().get("Host")
+    let host = req
+        .headers()
+        .get("Host")
         .and_then(|h| h.to_str().ok())
         .unwrap_or("localhost");
-    let scheme = if req.connection_info().scheme() == "https" { "https" } else { "http" };
+    let scheme = if req.connection_info().scheme() == "https" {
+        "https"
+    } else {
+        "http"
+    };
 
     HttpResponse::Accepted()
-        .insert_header(("Location", format!("{}://{}/v2/{}/blobs/uploads/{}", scheme, host, name, uuid)))
+        .insert_header((
+            "Location",
+            format!("{}://{}/v2/{}/blobs/uploads/{}", scheme, host, name, uuid),
+        ))
         .insert_header((DOCKER_UPLOAD_UUID_HEADER, uuid))
         .insert_header(("Range", format!("0-{}", file_size.saturating_sub(1))))
         .finish()
@@ -385,8 +417,10 @@ pub async fn complete_upload(
     // Verify digest
     let calculated_digest = format!("sha256:{}", hex::encode(Sha256::digest(&blob_data)));
     if &calculated_digest != digest {
-        return HttpResponse::BadRequest()
-            .json(DockerError::new("DIGEST_INVALID", "provided digest does not match uploaded content"));
+        return HttpResponse::BadRequest().json(DockerError::new(
+            "DIGEST_INVALID",
+            "provided digest does not match uploaded content",
+        ));
     }
 
     // Move blob to final location
@@ -410,13 +444,22 @@ pub async fn complete_upload(
 
     info!("Uploaded blob {} ({} bytes)", digest, blob_data.len());
 
-    let host = req.headers().get("Host")
+    let host = req
+        .headers()
+        .get("Host")
         .and_then(|h| h.to_str().ok())
         .unwrap_or("localhost");
-    let scheme = if req.connection_info().scheme() == "https" { "https" } else { "http" };
+    let scheme = if req.connection_info().scheme() == "https" {
+        "https"
+    } else {
+        "http"
+    };
 
     HttpResponse::Created()
-        .insert_header(("Location", format!("{}://{}/v2/{}/blobs/{}", scheme, host, name, digest)))
+        .insert_header((
+            "Location",
+            format!("{}://{}/v2/{}/blobs/{}", scheme, host, name, digest),
+        ))
         .insert_header((DOCKER_CONTENT_DIGEST_HEADER, digest.clone()))
         .finish()
 }
@@ -445,8 +488,10 @@ pub async fn head_manifest(
     } else {
         match fs::read_to_string(&manifest_path).await {
             Ok(d) => d.trim().to_string(),
-            Err(_) => return HttpResponse::NotFound()
-                .json(DockerError::new("MANIFEST_UNKNOWN", "manifest unknown")),
+            Err(_) => {
+                return HttpResponse::NotFound()
+                    .json(DockerError::new("MANIFEST_UNKNOWN", "manifest unknown"))
+            }
         }
     };
 
@@ -455,10 +500,14 @@ pub async fn head_manifest(
         Ok(meta) => HttpResponse::Ok()
             .insert_header(("Content-Length", meta.len().to_string()))
             .insert_header((DOCKER_CONTENT_DIGEST_HEADER, digest))
-            .insert_header(("Content-Type", "application/vnd.docker.distribution.manifest.v2+json"))
+            .insert_header((
+                "Content-Type",
+                "application/vnd.docker.distribution.manifest.v2+json",
+            ))
             .finish(),
-        Err(_) => HttpResponse::NotFound()
-            .json(DockerError::new("MANIFEST_UNKNOWN", "manifest unknown")),
+        Err(_) => {
+            HttpResponse::NotFound().json(DockerError::new("MANIFEST_UNKNOWN", "manifest unknown"))
+        }
     }
 }
 
@@ -481,8 +530,10 @@ pub async fn get_manifest(
     } else {
         match fs::read_to_string(&manifest_path).await {
             Ok(d) => d.trim().to_string(),
-            Err(_) => return HttpResponse::NotFound()
-                .json(DockerError::new("MANIFEST_UNKNOWN", "manifest unknown")),
+            Err(_) => {
+                return HttpResponse::NotFound()
+                    .json(DockerError::new("MANIFEST_UNKNOWN", "manifest unknown"))
+            }
         }
     };
 
@@ -490,22 +541,25 @@ pub async fn get_manifest(
     match fs::read(&blob_path).await {
         Ok(data) => {
             // Try to determine content type from manifest
-            let content_type = if let Ok(manifest) = serde_json::from_slice::<serde_json::Value>(&data) {
-                manifest.get("mediaType")
-                    .and_then(|m| m.as_str())
-                    .unwrap_or("application/vnd.docker.distribution.manifest.v2+json")
-                    .to_string()
-            } else {
-                "application/vnd.docker.distribution.manifest.v2+json".to_string()
-            };
+            let content_type =
+                if let Ok(manifest) = serde_json::from_slice::<serde_json::Value>(&data) {
+                    manifest
+                        .get("mediaType")
+                        .and_then(|m| m.as_str())
+                        .unwrap_or("application/vnd.docker.distribution.manifest.v2+json")
+                        .to_string()
+                } else {
+                    "application/vnd.docker.distribution.manifest.v2+json".to_string()
+                };
 
             HttpResponse::Ok()
                 .insert_header((DOCKER_CONTENT_DIGEST_HEADER, digest))
                 .insert_header(("Content-Type", content_type))
                 .body(data)
         }
-        Err(_) => HttpResponse::NotFound()
-            .json(DockerError::new("MANIFEST_UNKNOWN", "manifest unknown")),
+        Err(_) => {
+            HttpResponse::NotFound().json(DockerError::new("MANIFEST_UNKNOWN", "manifest unknown"))
+        }
     }
 }
 
@@ -530,15 +584,19 @@ pub async fn put_manifest(
     if let Some(parent) = blob_path.parent() {
         if let Err(e) = fs::create_dir_all(parent).await {
             error!("Failed to create blob directory: {}", e);
-            return HttpResponse::InternalServerError()
-                .json(DockerError::new("MANIFEST_INVALID", "failed to store manifest"));
+            return HttpResponse::InternalServerError().json(DockerError::new(
+                "MANIFEST_INVALID",
+                "failed to store manifest",
+            ));
         }
     }
 
     if let Err(e) = fs::write(&blob_path, &body).await {
         error!("Failed to write manifest blob: {}", e);
-        return HttpResponse::InternalServerError()
-            .json(DockerError::new("MANIFEST_INVALID", "failed to store manifest"));
+        return HttpResponse::InternalServerError().json(DockerError::new(
+            "MANIFEST_INVALID",
+            "failed to store manifest",
+        ));
     }
 
     // Create tag link if reference is not a digest
@@ -547,15 +605,19 @@ pub async fn put_manifest(
         if let Some(parent) = tag_path.parent() {
             if let Err(e) = fs::create_dir_all(parent).await {
                 error!("Failed to create tag directory: {}", e);
-                return HttpResponse::InternalServerError()
-                    .json(DockerError::new("MANIFEST_INVALID", "failed to store manifest"));
+                return HttpResponse::InternalServerError().json(DockerError::new(
+                    "MANIFEST_INVALID",
+                    "failed to store manifest",
+                ));
             }
         }
 
         if let Err(e) = fs::write(&tag_path, &digest).await {
             error!("Failed to write tag link: {}", e);
-            return HttpResponse::InternalServerError()
-                .json(DockerError::new("MANIFEST_INVALID", "failed to store manifest"));
+            return HttpResponse::InternalServerError().json(DockerError::new(
+                "MANIFEST_INVALID",
+                "failed to store manifest",
+            ));
         }
     }
 
@@ -574,13 +636,22 @@ pub async fn put_manifest(
 
     info!("Uploaded manifest {} for {}", digest, name);
 
-    let host = req.headers().get("Host")
+    let host = req
+        .headers()
+        .get("Host")
         .and_then(|h| h.to_str().ok())
         .unwrap_or("localhost");
-    let scheme = if req.connection_info().scheme() == "https" { "https" } else { "http" };
+    let scheme = if req.connection_info().scheme() == "https" {
+        "https"
+    } else {
+        "http"
+    };
 
     HttpResponse::Created()
-        .insert_header(("Location", format!("{}://{}/v2/{}/manifests/{}", scheme, host, name, reference)))
+        .insert_header((
+            "Location",
+            format!("{}://{}/v2/{}/manifests/{}", scheme, host, name, reference),
+        ))
         .insert_header((DOCKER_CONTENT_DIGEST_HEADER, digest))
         .finish()
 }

@@ -24,10 +24,8 @@ fn create_test_app_state(temp_dir: &tempfile::TempDir) -> web::Data<AppState> {
 
 #[actix_rt::test]
 async fn test_health_check() {
-    let app = test::init_service(
-        App::new().route("/health", web::get().to(health::health_check)),
-    )
-    .await;
+    let app =
+        test::init_service(App::new().route("/health", web::get().to(health::health_check))).await;
 
     let req = test::TestRequest::get().uri("/health").to_request();
     let resp = test::call_service(&app, req).await;
@@ -41,10 +39,9 @@ async fn test_health_check() {
 
 #[actix_rt::test]
 async fn test_readiness_check() {
-    let app = test::init_service(
-        App::new().route("/ready", web::get().to(health::readiness_check)),
-    )
-    .await;
+    let app =
+        test::init_service(App::new().route("/ready", web::get().to(health::readiness_check)))
+            .await;
 
     let req = test::TestRequest::get().uri("/ready").to_request();
     let resp = test::call_service(&app, req).await;
@@ -86,14 +83,10 @@ async fn test_list_packages_by_type_empty() {
     let temp_dir = tempfile::TempDir::new().unwrap();
     let app_state = create_test_app_state(&temp_dir);
 
-    let app = test::init_service(
-        App::new()
-            .app_data(app_state)
-            .route(
-                "/api/v1/packages/{pkg_type}",
-                web::get().to(packages::list_packages_by_type),
-            ),
-    )
+    let app = test::init_service(App::new().app_data(app_state).route(
+        "/api/v1/packages/{pkg_type}",
+        web::get().to(packages::list_packages_by_type),
+    ))
     .await;
 
     let req = test::TestRequest::get()
@@ -126,14 +119,10 @@ async fn test_list_packages_with_deb_files() {
     )
     .unwrap();
 
-    let app = test::init_service(
-        App::new()
-            .app_data(app_state)
-            .route(
-                "/api/v1/packages/{pkg_type}",
-                web::get().to(packages::list_packages_by_type),
-            ),
-    )
+    let app = test::init_service(App::new().app_data(app_state).route(
+        "/api/v1/packages/{pkg_type}",
+        web::get().to(packages::list_packages_by_type),
+    ))
     .await;
 
     let req = test::TestRequest::get()
@@ -166,14 +155,10 @@ async fn test_list_packages_pagination() {
         .unwrap();
     }
 
-    let app = test::init_service(
-        App::new()
-            .app_data(app_state)
-            .route(
-                "/api/v1/packages/{pkg_type}",
-                web::get().to(packages::list_packages_by_type),
-            ),
-    )
+    let app = test::init_service(App::new().app_data(app_state).route(
+        "/api/v1/packages/{pkg_type}",
+        web::get().to(packages::list_packages_by_type),
+    ))
     .await;
 
     // Test pagination with limit and offset
@@ -192,10 +177,8 @@ async fn test_list_packages_pagination() {
 
 #[actix_rt::test]
 async fn test_apt_setup_script() {
-    let app = test::init_service(
-        App::new().route("/setup/apt", web::get().to(setup::apt_setup)),
-    )
-    .await;
+    let app =
+        test::init_service(App::new().route("/setup/apt", web::get().to(setup::apt_setup))).await;
 
     let req = test::TestRequest::get()
         .uri("/setup/apt")
@@ -216,10 +199,8 @@ async fn test_apt_setup_script() {
 
 #[actix_rt::test]
 async fn test_rpm_setup_script() {
-    let app = test::init_service(
-        App::new().route("/setup/rpm", web::get().to(setup::rpm_setup)),
-    )
-    .await;
+    let app =
+        test::init_service(App::new().route("/setup/rpm", web::get().to(setup::rpm_setup))).await;
 
     let req = test::TestRequest::get()
         .uri("/setup/rpm")
@@ -238,10 +219,8 @@ async fn test_rpm_setup_script() {
 
 #[actix_rt::test]
 async fn test_arch_setup_script() {
-    let app = test::init_service(
-        App::new().route("/setup/arch", web::get().to(setup::arch_setup)),
-    )
-    .await;
+    let app =
+        test::init_service(App::new().route("/setup/arch", web::get().to(setup::arch_setup))).await;
 
     let req = test::TestRequest::get()
         .uri("/setup/arch")
@@ -260,10 +239,9 @@ async fn test_arch_setup_script() {
 
 #[actix_rt::test]
 async fn test_alpine_setup_script() {
-    let app = test::init_service(
-        App::new().route("/setup/alpine", web::get().to(setup::alpine_setup)),
-    )
-    .await;
+    let app =
+        test::init_service(App::new().route("/setup/alpine", web::get().to(setup::alpine_setup)))
+            .await;
 
     let req = test::TestRequest::get()
         .uri("/setup/alpine")
@@ -288,30 +266,14 @@ async fn test_list_packages_with_arch_filter() {
     // Create mock deb files with different architectures
     let pool_dir = temp_dir.path().join("packages/deb/pool");
     std::fs::create_dir_all(&pool_dir).unwrap();
-    std::fs::write(
-        pool_dir.join("pkg1_1.0.0_amd64.deb"),
-        "amd64 content",
-    )
-    .unwrap();
-    std::fs::write(
-        pool_dir.join("pkg2_1.0.0_arm64.deb"),
-        "arm64 content",
-    )
-    .unwrap();
-    std::fs::write(
-        pool_dir.join("pkg3_1.0.0_all.deb"),
-        "all content",
-    )
-    .unwrap();
+    std::fs::write(pool_dir.join("pkg1_1.0.0_amd64.deb"), "amd64 content").unwrap();
+    std::fs::write(pool_dir.join("pkg2_1.0.0_arm64.deb"), "arm64 content").unwrap();
+    std::fs::write(pool_dir.join("pkg3_1.0.0_all.deb"), "all content").unwrap();
 
-    let app = test::init_service(
-        App::new()
-            .app_data(app_state)
-            .route(
-                "/api/v1/packages/{pkg_type}",
-                web::get().to(packages::list_packages_by_type),
-            ),
-    )
+    let app = test::init_service(App::new().app_data(app_state).route(
+        "/api/v1/packages/{pkg_type}",
+        web::get().to(packages::list_packages_by_type),
+    ))
     .await;
 
     // Filter by amd64
@@ -325,5 +287,5 @@ async fn test_list_packages_with_arch_filter() {
     let body: Value = test::read_body_json(resp).await;
     // Should get amd64 and "all" packages
     let packages = body["packages"].as_array().unwrap();
-    assert!(packages.len() >= 1);
+    assert!(!packages.is_empty());
 }

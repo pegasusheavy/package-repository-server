@@ -4,13 +4,15 @@ use std::sync::Arc;
 use tracing::{info, warn};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use package_repo_server::handlers::{cargo, docker, health, maven, npm, nuget, packages, pypi, setup, upload};
+use package_repo_server::handlers::{
+    cargo, docker, health, maven, npm, nuget, packages, pypi, setup, upload,
+};
 use package_repo_server::middleware::{RequestId, SecurityHeaders};
-use package_repo_server::storage::Storage;
 use package_repo_server::sso_config::SsoConfig;
-use package_repo_server::sso_handlers::{SsoState, configure_routes as configure_sso_routes};
+use package_repo_server::sso_handlers::{configure_routes as configure_sso_routes, SsoState};
 use package_repo_server::sso_session::JwtManager;
 use package_repo_server::sso_state::StatelessStateManager;
+use package_repo_server::storage::Storage;
 use package_repo_server::AppState;
 
 #[actix_web::main]
@@ -75,7 +77,10 @@ async fn main() -> std::io::Result<()> {
         match Storage::new_s3_from_env().await {
             Ok(s) => s,
             Err(e) => {
-                panic!("Failed to initialize S3 storage: {}. Check your S3_* environment variables.", e);
+                panic!(
+                    "Failed to initialize S3 storage: {}. Check your S3_* environment variables.",
+                    e
+                );
             }
         }
     } else {
@@ -87,23 +92,25 @@ async fn main() -> std::io::Result<()> {
     let sso_config = SsoConfig::from_env();
     let sso_state = if sso_config.enabled {
         info!("SSO authentication is ENABLED (stateless)");
-        info!("Configured SSO providers: {}", 
-            sso_config.enabled_providers()
+        info!(
+            "Configured SSO providers: {}",
+            sso_config
+                .enabled_providers()
                 .iter()
                 .map(|p| p.name.as_str())
                 .collect::<Vec<_>>()
                 .join(", ")
         );
-        
+
         if !sso_config.allow_api_key_auth {
             info!("API key authentication is DISABLED - only SSO allowed");
         } else {
             info!("API key authentication is enabled alongside SSO");
         }
-        
+
         let jwt_manager = JwtManager::new(&sso_config.jwt_secret);
         let state_manager = StatelessStateManager::new(&sso_config.jwt_secret);
-        
+
         Some(Arc::new(SsoState {
             config: sso_config.clone(),
             jwt_manager,
@@ -122,7 +129,10 @@ async fn main() -> std::io::Result<()> {
         sso: sso_state.clone(),
     });
 
-    info!("Starting Package Repository API server on port {}", api_port);
+    info!(
+        "Starting Package Repository API server on port {}",
+        api_port
+    );
 
     HttpServer::new(move || {
         let cors = Cors::default()
@@ -134,8 +144,8 @@ async fn main() -> std::io::Result<()> {
         let mut app = App::new()
             .app_data(app_state.clone())
             .wrap(cors)
-            .wrap(SecurityHeaders)  // Security headers on all responses
-            .wrap(RequestId)        // Request ID tracking for audit logs
+            .wrap(SecurityHeaders) // Security headers on all responses
+            .wrap(RequestId) // Request ID tracking for audit logs
             .wrap(middleware::Logger::default())
             .wrap(middleware::Compress::default())
             // Health endpoints
@@ -144,7 +154,8 @@ async fn main() -> std::io::Result<()> {
 
         // Add SSO routes if enabled
         if let Some(sso) = &sso_state {
-            app = app.app_data(web::Data::new(sso.clone()))
+            app = app
+                .app_data(web::Data::new(sso.clone()))
                 .configure(configure_sso_routes);
             info!("SSO routes configured");
         }
@@ -185,7 +196,10 @@ async fn main() -> std::io::Result<()> {
                         web::delete().to(packages::delete_package),
                     )
                     // Repository management
-                    .route("/repos/{pkg_type}/rebuild", web::post().to(packages::rebuild_repo)),
+                    .route(
+                        "/repos/{pkg_type}/rebuild",
+                        web::post().to(packages::rebuild_repo),
+                    ),
             )
             // Cargo Registry (sparse index protocol)
             .service(
@@ -217,11 +231,20 @@ async fn main() -> std::io::Result<()> {
                         "/@{scope}/{package}/-/{tarball}",
                         web::get().to(npm::download_scoped_tarball),
                     )
-                    .route("/@{scope}/{package}", web::get().to(npm::get_scoped_packument))
-                    .route("/@{scope}/{package}", web::put().to(npm::publish_scoped_package))
+                    .route(
+                        "/@{scope}/{package}",
+                        web::get().to(npm::get_scoped_packument),
+                    )
+                    .route(
+                        "/@{scope}/{package}",
+                        web::put().to(npm::publish_scoped_package),
+                    )
                     // Unscoped package routes
                     .route("/-/all", web::get().to(npm::list_packages))
-                    .route("/{package}/-/{tarball}", web::get().to(npm::download_tarball))
+                    .route(
+                        "/{package}/-/{tarball}",
+                        web::get().to(npm::download_tarball),
+                    )
                     .route("/{package}", web::get().to(npm::get_packument))
                     .route("/{package}", web::put().to(npm::publish_package)),
             )
@@ -233,11 +256,17 @@ async fn main() -> std::io::Result<()> {
                     .route("/simple/{package}/", web::get().to(pypi::simple_package))
                     // JSON API
                     .route("/pypi/{package}/json", web::get().to(pypi::package_json))
-                    .route("/pypi/{package}/{version}/json", web::get().to(pypi::version_json))
+                    .route(
+                        "/pypi/{package}/{version}/json",
+                        web::get().to(pypi::version_json),
+                    )
                     // Upload (twine upload)
                     .route("/", web::post().to(pypi::upload_package))
                     // Download
-                    .route("/packages/{package}/{version}/{filename}", web::get().to(pypi::download_package)),
+                    .route(
+                        "/packages/{package}/{version}/{filename}",
+                        web::get().to(pypi::download_package),
+                    ),
             )
             // Maven Repository
             .service(
@@ -253,15 +282,39 @@ async fn main() -> std::io::Result<()> {
                     .route("/", web::get().to(docker::version_check))
                     .route("/_catalog", web::get().to(docker::catalog))
                     .route("/{name:.*}/tags/list", web::get().to(docker::list_tags))
-                    .route("/{name:.*}/blobs/uploads/", web::post().to(docker::start_upload))
-                    .route("/{name:.*}/blobs/uploads/{uuid}", web::patch().to(docker::patch_upload))
-                    .route("/{name:.*}/blobs/uploads/{uuid}", web::put().to(docker::complete_upload))
-                    .route("/{name:.*}/blobs/{digest}", web::head().to(docker::head_blob))
+                    .route(
+                        "/{name:.*}/blobs/uploads/",
+                        web::post().to(docker::start_upload),
+                    )
+                    .route(
+                        "/{name:.*}/blobs/uploads/{uuid}",
+                        web::patch().to(docker::patch_upload),
+                    )
+                    .route(
+                        "/{name:.*}/blobs/uploads/{uuid}",
+                        web::put().to(docker::complete_upload),
+                    )
+                    .route(
+                        "/{name:.*}/blobs/{digest}",
+                        web::head().to(docker::head_blob),
+                    )
                     .route("/{name:.*}/blobs/{digest}", web::get().to(docker::get_blob))
-                    .route("/{name:.*}/manifests/{reference}", web::head().to(docker::head_manifest))
-                    .route("/{name:.*}/manifests/{reference}", web::get().to(docker::get_manifest))
-                    .route("/{name:.*}/manifests/{reference}", web::put().to(docker::put_manifest))
-                    .route("/{name:.*}/manifests/{reference}", web::delete().to(docker::delete_manifest)),
+                    .route(
+                        "/{name:.*}/manifests/{reference}",
+                        web::head().to(docker::head_manifest),
+                    )
+                    .route(
+                        "/{name:.*}/manifests/{reference}",
+                        web::get().to(docker::get_manifest),
+                    )
+                    .route(
+                        "/{name:.*}/manifests/{reference}",
+                        web::put().to(docker::put_manifest),
+                    )
+                    .route(
+                        "/{name:.*}/manifests/{reference}",
+                        web::delete().to(docker::delete_manifest),
+                    ),
             )
             // NuGet Registry (V3 API)
             .service(
@@ -269,15 +322,27 @@ async fn main() -> std::io::Result<()> {
                     // Service index (entry point)
                     .route("/v3/index.json", web::get().to(nuget::service_index))
                     // Package content (flat container)
-                    .route("/v3-flatcontainer/{id}/index.json", web::get().to(nuget::list_versions))
-                    .route("/v3-flatcontainer/{id}/{version}/{filename}", web::get().to(nuget::download_content))
+                    .route(
+                        "/v3-flatcontainer/{id}/index.json",
+                        web::get().to(nuget::list_versions),
+                    )
+                    .route(
+                        "/v3-flatcontainer/{id}/{version}/{filename}",
+                        web::get().to(nuget::download_content),
+                    )
                     // Registration (metadata)
-                    .route("/v3/registration/{id}/index.json", web::get().to(nuget::registration_index))
+                    .route(
+                        "/v3/registration/{id}/index.json",
+                        web::get().to(nuget::registration_index),
+                    )
                     // Search
                     .route("/query", web::get().to(nuget::search))
                     // Push/delete
                     .route("/api/v2/package", web::put().to(nuget::push_package))
-                    .route("/api/v2/package/{id}/{version}", web::delete().to(nuget::delete_package)),
+                    .route(
+                        "/api/v2/package/{id}/{version}",
+                        web::delete().to(nuget::delete_package),
+                    ),
             )
     })
     .bind(("0.0.0.0", api_port))?
